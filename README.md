@@ -27,11 +27,43 @@ JSON Schema has no built-in operator for adding values from different properties
 
 The example schema is **41,232 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
-**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)**: edit an invoice, add one cent, and watch the schema reject it. Compilation and validation run locally in a worker.
+**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.1.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.1.0)**: the invoice schema, both records and a standalone Python validator.
 
-[Run it locally](#try-it) · [Computational model](#the-computational-model) · [Compression](#where-the-compression-comes-from) · [Verification](#verification) · [Research notes](#explore-the-project)
+[One cent, two validators](#one-cent-two-validators) · [Computational model](#the-computational-model) · [Compression](#where-the-compression-comes-from) · [Verification](#verification) · [Research notes](#explore-the-project)
 
-## Try it
+## One cent, two validators
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/demo.png">
+  <img src="docs/demo.gif" width="880" alt="The playground accepts an invoice totalling 122.45, then rejects it after Add one cent changes the total to 122.46. The schema, the record and validate.py are downloaded, and stock Python jsonschema, in an environment without Schema Calc, prints REJECT for the same record.">
+</picture>
+
+1. The [playground](https://fmindstormer.github.io/schema-calc/) accepts the correct invoice.
+2. **Add one cent** changes only the total, to 122.46, and the generated schema rejects it.
+3. Download the schema, the record and `validate.py`.
+4. Stock Python `jsonschema` rejects the record too, in a fresh environment where Schema Calc was never installed.
+
+The captions are added by the recording; the terminal panel replays the commands and their output as captured from that run, on the files the browser had just downloaded ([scripts/demo/record.mjs](scripts/demo/record.mjs)). [scripts/check-handoff.mjs](scripts/check-handoff.mjs) repeats the handoff in CI for accepted and one-cent records in both encodings.
+
+### Reproduce it without cloning
+
+You need Python 3 and `jsonschema` 4.25.1; not Node, and not this repository:
+
+```sh
+python3 -m pip install jsonschema==4.25.1
+base=https://github.com/fMindstormer/schema-calc/releases/download/v0.1.0
+for f in validate.py invoice.schema.json invoice.valid.json invoice.invalid.json; do curl -fLO "$base/$f"; done
+python3 validate.py invoice.schema.json invoice.valid.json invoice.invalid.json
+```
+
+```text
+ACCEPT  invoice.valid.json
+REJECT  invoice.invalid.json
+```
+
+`validate.py` is a short script that never imports the compiler; it exits with 1 when any record is rejected. For a record you edited yourself, use the playground's two download buttons: the page prints the matching command and the output to expect.
+
+## Run it locally
 
 Requires Node.js 20 or newer; Node 24 is the reference development version.
 
@@ -42,7 +74,7 @@ npm run demo
 
 The demo loads the checked-in invoice schema directly into stock Ajv. It prints `ACCEPT` for the correct total and `REJECT` for the one-cent error. It never imports the compiler. The equivalent independent Python example is [examples/validate.py](examples/validate.py).
 
-For the browser playground ([hosted copy](https://fmindstormer.github.io/schema-calc/)):
+For the browser playground:
 
 ```sh
 npm run build
@@ -50,15 +82,6 @@ npm start
 ```
 
 Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, or `999.99 + 0.01 = 1000.00` to exercise a long carry. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
-
-<details>
-<summary>Preview: the playground catching a one-cent error</summary>
-
-![The invoice playground rejecting total 122.46 and offering the 41.2 kB standard schema for download.](docs/playground.png)
-
-The timing shown is one local validation, not a benchmark.
-
-</details>
 
 ## What is it useful for?
 
@@ -187,11 +210,14 @@ npm test
 npm run check:examples
 npm run check:python
 npm run check:tally
+npm run build
+npx playwright install chromium
+npm run check:handoff
 ```
 
-On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0 and jsonschema 4.25.1.
+On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 24 Node tests cover the compiler, both representations, browser preparation and the bounded optimizer. The generated corpus is checked independently in both validators:
+The 28 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
@@ -202,7 +228,7 @@ The 24 Node tests cover the compiler, both representations, browser preparation 
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on pushes and pull requests, on Node 20 and 24.
+Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests.
 
 ## Explore the project
 

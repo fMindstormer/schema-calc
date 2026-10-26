@@ -14,6 +14,7 @@ npm run check:tally
 npm run demo
 .venv/bin/python examples/validate.py
 npm run build
+npm run check:handoff
 python3 scripts/package.py
 ```
 
@@ -25,15 +26,20 @@ Extract it into an empty directory and run `npm ci`, `npm run demo`, `npm test`,
 
 The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/schema-calc). Two workflows run there:
 
-- **Verify schemas** (`.github/workflows/ci.yml`) runs the Node and Python suites, the examples and the build on every push and pull request, with read-only permissions.
+- **Verify schemas** (`.github/workflows/ci.yml`) runs the Node and Python suites, the examples, the build and the browser handoff check on every push and pull request, with read-only permissions.
 - **Pages** (`.github/workflows/pages.yml`) builds the playground from `main` and publishes `dist/` to [fmindstormer.github.io/schema-calc](https://fmindstormer.github.io/schema-calc/). It needs Settings > Pages > Source set to GitHub Actions once.
 
-To release, tag the verified commit and attach the archive and its checksum:
+To release, tag the verified commit. Attach the archive and its checksum, plus the files the README's no-clone instructions download, so they work without the repository:
 
 ```sh
 git tag v0.1.0 && git push origin v0.1.0
-gh release create v0.1.0 releases/schema-calc-0.1.0.zip releases/schema-calc-0.1.0.zip.sha256
+gh release create v0.1.0 releases/schema-calc-0.1.0.zip releases/schema-calc-0.1.0.zip.sha256 \
+  examples/invoice.schema.json examples/invoice.valid.json examples/invoice.invalid.json examples/validate.py
 ```
+
+Then run the README's "Reproduce it without cloning" commands in an empty directory.
+
+If the playground's behaviour changed, rerecord the README demonstration with `npm run demo:record` (needs ffmpeg and ImageMagick) and look at `docs/demo.gif` before committing it.
 
 ## Before tagging
 

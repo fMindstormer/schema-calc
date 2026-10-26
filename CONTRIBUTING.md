@@ -4,7 +4,7 @@ Schema Calc is a research compiler with a deliberately small source language. Im
 
 ## Development setup
 
-Use Node.js 20 or newer (24 is the reference version) and Python 3.13 for the independent validator. The compiler has no runtime dependencies. Ajv and esbuild are pinned in `package-lock.json`; `requirements-test.txt` pins Python jsonschema.
+Use Node.js 20 or newer (24 is the reference version) and Python 3.13 for the independent validator. The compiler has no runtime dependencies. Ajv, esbuild and Playwright are pinned in `package-lock.json`; `requirements-test.txt` pins Python jsonschema.
 
 On macOS or Linux:
 
@@ -19,6 +19,8 @@ npm run check:tally
 npm run demo
 .venv/bin/python examples/validate.py
 npm run build
+npx playwright install chromium
+npm run check:handoff
 npm start
 ```
 
