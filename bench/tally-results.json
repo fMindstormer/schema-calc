@@ -1,0 +1,112 @@
+{
+  "node": "v24.6.0",
+  "platform": "darwin",
+  "methodology": "Compact UTF-8 bytes. Tally uses a different, lossless input representation; the numeric domain and equations are unchanged. Stock Ajv strict:true, inlineRefs:false. Median of 5 batches of 10000 after 1000 warmups; one preparation run. encodeMs is the complete public encoder, including contract parsing and format checks, timed separately. Python adds its own validator-only timings below.",
+  "rows": [
+    {
+      "name": "invoice",
+      "implementation": "mixed-radix",
+      "bytes": 57050,
+      "payloadBytes": 75,
+      "prepareMs": 134.25966699999998,
+      "validMs": 0.0028461082999999975,
+      "invalidMs": 0.00042162910000000125,
+      "pythonValidMs": 1.7739270493621007,
+      "pythonInvalidMs": 0.11603955063037574
+    },
+    {
+      "name": "invoice",
+      "implementation": "packed",
+      "bytes": 41232,
+      "payloadBytes": 75,
+      "prepareMs": 2960.392709,
+      "validMs": 0.0035247583000000303,
+      "invalidMs": 0.00017415829999999915,
+      "pythonValidMs": 16.551777097629383,
+      "pythonInvalidMs": 14.77252914919518
+    },
+    {
+      "name": "invoice",
+      "implementation": "tally",
+      "bytes": 3569,
+      "payloadBytes": 676,
+      "prepareMs": 17.270750000000135,
+      "validMs": 0.0014556499999999687,
+      "invalidMs": 0.0005593790999999783,
+      "encodeMs": 0.017414500000000045,
+      "pythonValidMs": 2.6126229495275766,
+      "pythonInvalidMs": 0.8885979012120515
+    },
+    {
+      "name": "allocation",
+      "implementation": "mixed-radix",
+      "bytes": 21935,
+      "payloadBytes": 63,
+      "prepareMs": 39.941374999999425,
+      "validMs": 0.001641612499999974,
+      "invalidMs": 0.00012919169999995575,
+      "pythonValidMs": 0.887279148446396,
+      "pythonInvalidMs": 0.07109584985300899
+    },
+    {
+      "name": "allocation",
+      "implementation": "packed",
+      "bytes": 16315,
+      "payloadBytes": 63,
+      "prepareMs": 262.8245420000003,
+      "validMs": 0.001478520799999933,
+      "invalidMs": 0.0005299541000000317,
+      "pythonValidMs": 20.743312500417233,
+      "pythonInvalidMs": 4.838479150203057
+    },
+    {
+      "name": "allocation",
+      "implementation": "tally",
+      "bytes": 3913,
+      "payloadBytes": 566,
+      "prepareMs": 10.076791999999841,
+      "validMs": 0.0038882999999999813,
+      "invalidMs": 0.0034291041000000405,
+      "encodeMs": 0.015137279099999977,
+      "pythonValidMs": 1.7341791477520019,
+      "pythonInvalidMs": 1.2660124979447573
+    },
+    {
+      "name": "carry",
+      "implementation": "mixed-radix",
+      "bytes": 28167,
+      "payloadBytes": 56,
+      "prepareMs": 47.44379200000003,
+      "validMs": 0.002007995800000026,
+      "invalidMs": 0.0019554040999999415,
+      "pythonValidMs": 1.1504479014547542,
+      "pythonInvalidMs": 1.0545083496253937
+    },
+    {
+      "name": "carry",
+      "implementation": "packed",
+      "bytes": 20510,
+      "payloadBytes": 56,
+      "prepareMs": 492.75245899999936,
+      "validMs": 0.0021649666000000253,
+      "invalidMs": 0.0015980250000000524,
+      "pythonValidMs": 19.61443955078721,
+      "pythonInvalidMs": 19.324558350490406
+    },
+    {
+      "name": "carry",
+      "implementation": "tally",
+      "bytes": 2356,
+      "payloadBytes": 515,
+      "prepareMs": 8.779624999999214,
+      "validMs": 0.001070929199999955,
+      "invalidMs": 0.0012182499999998982,
+      "encodeMs": 0.014528766700000051,
+      "pythonValidMs": 1.1167604010552168,
+      "pythonInvalidMs": 1.1382395983673632
+    }
+  ],
+  "python": "3.13.3",
+  "jsonschema": "4.25.1",
+  "pythonMethodology": "Stock Draft202012Validator.is_valid. Median of 5 batches of 20 after 5 warmups; input already encoded; schema meta-validation outside timing."
+}

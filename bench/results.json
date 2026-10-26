@@ -1,0 +1,119 @@
+{
+  "node": "v24.6.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "methodology": "Compact UTF-8 JSON; identical contracts and domains. All three use stock Ajv strict:true, inlineRefs:false. Validation: median of 5 batches of 1000 after 100 warmups. Compiler/preparation: one run, indicative. browserPrepareMs separately times standards-based unbundling and dependency-ordered preparation; it is not the stock preparation column.",
+  "rows": [
+    {
+      "name": "invoice",
+      "implementation": "original",
+      "bytes": 284300,
+      "gzipBytes": 25927,
+      "definitions": 2569,
+      "decisionNodes": 2353,
+      "compileMs": 7.873457999999999,
+      "prepareMs": 342.658417,
+      "validMs": 0.004694792000000007,
+      "invalidMs": 0.0006092080000000237
+    },
+    {
+      "name": "invoice",
+      "implementation": "mixed-radix",
+      "bytes": 57050,
+      "gzipBytes": 5864,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "compileMs": 5.290374999999983,
+      "prepareMs": 78.44133399999998,
+      "validMs": 0.004604249999999979,
+      "invalidMs": 0.00039466700000002675
+    },
+    {
+      "name": "invoice",
+      "implementation": "packed",
+      "bytes": 41232,
+      "gzipBytes": 4924,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "compileMs": 9.523541000000023,
+      "prepareMs": 1897.3509160000003,
+      "validMs": 0.016684749999999894,
+      "invalidMs": 0.0017588749999999892,
+      "browserPrepareMs": 95.31912499999999
+    },
+    {
+      "name": "allocation",
+      "implementation": "original",
+      "bytes": 94025,
+      "gzipBytes": 8639,
+      "definitions": 859,
+      "decisionNodes": 739,
+      "compileMs": 5.217416999999841,
+      "prepareMs": 118.07766700000002,
+      "validMs": 0.011682958999999755,
+      "invalidMs": 0.00035458299999982046
+    },
+    {
+      "name": "allocation",
+      "implementation": "mixed-radix",
+      "bytes": 21935,
+      "gzipBytes": 2510,
+      "definitions": 162,
+      "decisionNodes": 230,
+      "compileMs": 1.8947499999999309,
+      "prepareMs": 32.17979100000002,
+      "validMs": 0.0015240829999997913,
+      "invalidMs": 0.0002611669999996593
+    },
+    {
+      "name": "allocation",
+      "implementation": "packed",
+      "bytes": 16315,
+      "gzipBytes": 2162,
+      "definitions": 168,
+      "decisionNodes": 231,
+      "compileMs": 3.2958749999997963,
+      "prepareMs": 191.540708,
+      "validMs": 0.0024353339999997844,
+      "invalidMs": 0.0004161250000001928,
+      "browserPrepareMs": 35.96849999999995
+    },
+    {
+      "name": "carry",
+      "implementation": "original",
+      "bytes": 129290,
+      "gzipBytes": 11591,
+      "definitions": 1182,
+      "decisionNodes": 1020,
+      "compileMs": 6.7586670000000595,
+      "prepareMs": 150.97137500000008,
+      "validMs": 0.016364084000000275,
+      "invalidMs": 0.003726042000000234
+    },
+    {
+      "name": "carry",
+      "implementation": "mixed-radix",
+      "bytes": 28167,
+      "gzipBytes": 3121,
+      "definitions": 220,
+      "decisionNodes": 284,
+      "compileMs": 2.185624999999618,
+      "prepareMs": 36.75199999999995,
+      "validMs": 0.0019589579999997114,
+      "invalidMs": 0.0018664589999998497
+    },
+    {
+      "name": "carry",
+      "implementation": "packed",
+      "bytes": 20510,
+      "gzipBytes": 2687,
+      "definitions": 226,
+      "decisionNodes": 284,
+      "compileMs": 4.266458999999941,
+      "prepareMs": 370.863417,
+      "validMs": 0.005069750000000112,
+      "invalidMs": 0.0033514160000004266,
+      "browserPrepareMs": 41.120458000000326
+    }
+  ]
+}

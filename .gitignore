@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+dist/
+__pycache__/
+test/corpus.json
+test/tally-corpus.json
+test/flat-experiment-corpus.json
+bench/scratch/
+test/superoptimizer-corpus.json
+test/superoptimizer-cells.json
+releases/
+.DS_Store
+*.log

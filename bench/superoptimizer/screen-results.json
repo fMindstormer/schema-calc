@@ -1,0 +1,2007 @@
+[
+  {
+    "name": "invoice",
+    "implementation": "fast",
+    "config": null,
+    "bytes": 57050,
+    "compileMs": 6.154375000000002,
+    "prepareMs": 108.048708,
+    "validMs": 0.0021841332999999992,
+    "invalidMs": 0.00034484580000000166,
+    "stats": {
+      "bytes": 57050,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "predicates": 128,
+      "exploredStates": 470,
+      "maxDigitTests": 96
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "production",
+    "config": null,
+    "bytes": 41232,
+    "compileMs": 9.031165999999985,
+    "prepareMs": 1947.075333,
+    "validMs": 0.0026021291999999904,
+    "invalidMs": 0.0001332875000000058,
+    "stats": {
+      "bytes": 41232,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "predicates": 128,
+      "exploredStates": 470,
+      "maxDigitTests": 96
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-none-0",
+    "config": {
+      "mode": "none",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 56241,
+    "compileMs": 5.601500000000215,
+    "prepareMs": 84.44204100000024,
+    "validMs": 0.0029029625000000126,
+    "invalidMs": 0.0001551125000000411,
+    "stats": {
+      "synthesizedCells": 0,
+      "search": {
+        "searches": 0,
+        "hits": 0,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 56241,
+      "definitions": 384,
+      "decisionNodes": 660,
+      "predicates": 128,
+      "exploredStates": 470,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 54160,
+    "compileMs": 82.37254099999973,
+    "prepareMs": 82.05208399999992,
+    "validMs": 0.0039271792,
+    "invalidMs": 0.00018337500000002363,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 2,
+        "hits": 14,
+        "states": 16678,
+        "partitions": 323200,
+        "verifiedRows": 32,
+        "budgetFallbacks": 0
+      },
+      "bytes": 54160,
+      "definitions": 351,
+      "decisionNodes": 658,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-binary-100",
+    "config": {
+      "mode": "binary",
+      "weight": 100,
+      "packed": false
+    },
+    "bytes": 54870,
+    "compileMs": 69.85587499999974,
+    "prepareMs": 79.52666700000009,
+    "validMs": 0.0036521249999999783,
+    "invalidMs": 0.00018920419999999467,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 2,
+        "hits": 14,
+        "states": 16678,
+        "partitions": 323200,
+        "verifiedRows": 32,
+        "budgetFallbacks": 0
+      },
+      "bytes": 54870,
+      "definitions": 341,
+      "decisionNodes": 668,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 54810,
+    "compileMs": 69.64641599999959,
+    "prepareMs": 77.72254199999998,
+    "validMs": 0.0037878124999999726,
+    "invalidMs": 0.0001832541000000674,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 2,
+        "hits": 14,
+        "states": 16678,
+        "partitions": 323200,
+        "verifiedRows": 32,
+        "budgetFallbacks": 0
+      },
+      "bytes": 54810,
+      "definitions": 351,
+      "decisionNodes": 664,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-binary-1600",
+    "config": {
+      "mode": "binary",
+      "weight": 1600,
+      "packed": false
+    },
+    "bytes": 55180,
+    "compileMs": 69.53079200000047,
+    "prepareMs": 81.98991699999988,
+    "validMs": 0.003044012500000008,
+    "invalidMs": 0.000205304199999955,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 2,
+        "hits": 14,
+        "states": 16678,
+        "partitions": 323200,
+        "verifiedRows": 32,
+        "budgetFallbacks": 0
+      },
+      "bytes": 55180,
+      "definitions": 367,
+      "decisionNodes": 656,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 56644,
+    "compileMs": 19.017125000000306,
+    "prepareMs": 84.43233400000008,
+    "validMs": 0.0027244958000000223,
+    "invalidMs": 0.00014619579999998678,
+    "stats": {
+      "synthesizedCells": 66,
+      "search": {
+        "searches": 15,
+        "hits": 51,
+        "states": 12887,
+        "partitions": 60404,
+        "verifiedRows": 375,
+        "budgetFallbacks": 0
+      },
+      "bytes": 56644,
+      "definitions": 373,
+      "decisionNodes": 660,
+      "predicates": 131,
+      "exploredStates": 266,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 56784,
+    "compileMs": 18.25495899999987,
+    "prepareMs": 82.64033299999937,
+    "validMs": 0.0027153457999999774,
+    "invalidMs": 0.00014324579999993147,
+    "stats": {
+      "synthesizedCells": 66,
+      "search": {
+        "searches": 15,
+        "hits": 51,
+        "states": 12887,
+        "partitions": 60404,
+        "verifiedRows": 375,
+        "budgetFallbacks": 0
+      },
+      "bytes": 56784,
+      "definitions": 374,
+      "decisionNodes": 661,
+      "predicates": 133,
+      "exploredStates": 266,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 54563,
+    "compileMs": 5.421707999999853,
+    "prepareMs": 74.67212500000005,
+    "validMs": 0.003587725000000046,
+    "invalidMs": 0.00018257919999996374,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 54563,
+      "definitions": 340,
+      "decisionNodes": 658,
+      "predicates": 131,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 54703,
+    "compileMs": 4.717040999999881,
+    "prepareMs": 72.4844579999999,
+    "validMs": 0.0037625541999999766,
+    "invalidMs": 0.00018895839999995588,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 54703,
+      "definitions": 341,
+      "decisionNodes": 659,
+      "predicates": 133,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 55353,
+    "compileMs": 4.260250000000269,
+    "prepareMs": 71.68174999999974,
+    "validMs": 0.0031947667000000366,
+    "invalidMs": 0.00020392079999992347,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 55353,
+      "definitions": 341,
+      "decisionNodes": 665,
+      "predicates": 133,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 39798,
+    "compileMs": 5.142624999999498,
+    "prepareMs": 1222.1171250000007,
+    "validMs": 0.0044692,
+    "invalidMs": 0.0010467916999999942,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 0,
+        "hits": 16,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 39798,
+      "definitions": 353,
+      "decisionNodes": 658,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-binary-100",
+    "config": {
+      "mode": "binary",
+      "weight": 100,
+      "packed": true
+    },
+    "bytes": 40536,
+    "compileMs": 6.005708000000595,
+    "prepareMs": 1253.3901660000001,
+    "validMs": 0.0032349208999999973,
+    "invalidMs": 0.0010470166999999493,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 0,
+        "hits": 16,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 40536,
+      "definitions": 343,
+      "decisionNodes": 668,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 40441,
+    "compileMs": 7.670874999999796,
+    "prepareMs": 1270.869208,
+    "validMs": 0.0031484832999998614,
+    "invalidMs": 0.0010389624999999796,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 0,
+        "hits": 16,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 40441,
+      "definitions": 353,
+      "decisionNodes": 664,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-binary-1600",
+    "config": {
+      "mode": "binary",
+      "weight": 1600,
+      "packed": true
+    },
+    "bytes": 40542,
+    "compileMs": 9.352624999999534,
+    "prepareMs": 1697.391291,
+    "validMs": 0.0029896042000000307,
+    "invalidMs": 0.00018366249999999127,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 0,
+        "hits": 16,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 40542,
+      "definitions": 369,
+      "decisionNodes": 656,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 41737,
+    "compileMs": 8.232332999999926,
+    "prepareMs": 1623.7582079999993,
+    "validMs": 0.0027778167000000395,
+    "invalidMs": 0.0001311083000000508,
+    "stats": {
+      "synthesizedCells": 66,
+      "search": {
+        "searches": 0,
+        "hits": 66,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 41737,
+      "definitions": 401,
+      "decisionNodes": 660,
+      "predicates": 131,
+      "exploredStates": 266,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 41821,
+    "compileMs": 8.512167000000773,
+    "prepareMs": 1746.1719589999993,
+    "validMs": 0.002835662500000035,
+    "invalidMs": 0.0001303165999997873,
+    "stats": {
+      "synthesizedCells": 66,
+      "search": {
+        "searches": 0,
+        "hits": 66,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 41821,
+      "definitions": 399,
+      "decisionNodes": 661,
+      "predicates": 133,
+      "exploredStates": 266,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 40321,
+    "compileMs": 5.871124999997846,
+    "prepareMs": 1207.013833000001,
+    "validMs": 0.004791804199999751,
+    "invalidMs": 0.0010791874999998982,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 40321,
+      "definitions": 368,
+      "decisionNodes": 658,
+      "predicates": 131,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 40401,
+    "compileMs": 8.99408300000141,
+    "prepareMs": 1291.884582999999,
+    "validMs": 0.003592041700000118,
+    "invalidMs": 0.0011194250000000465,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 40401,
+      "definitions": 366,
+      "decisionNodes": 659,
+      "predicates": 133,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 41024,
+    "compileMs": 8.947415999999066,
+    "prepareMs": 1317.9512910000012,
+    "validMs": 0.003077654199999961,
+    "invalidMs": 0.0010453750000000582,
+    "stats": {
+      "synthesizedCells": 82,
+      "search": {
+        "searches": 0,
+        "hits": 82,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 41024,
+      "definitions": 366,
+      "decisionNodes": 665,
+      "predicates": 133,
+      "exploredStates": 142,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "flat-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": false,
+      "macros": false
+    },
+    "bytes": 56241,
+    "compileMs": 5.405792000001384,
+    "prepareMs": 91.0578749999986,
+    "validMs": 0.00321217089999991,
+    "invalidMs": 0.00014425830000000132,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 2,
+        "hits": 14,
+        "states": 162,
+        "partitions": 216,
+        "verifiedRows": 32,
+        "budgetFallbacks": 0
+      },
+      "bytes": 56241,
+      "definitions": 384,
+      "decisionNodes": 660,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "invoice",
+    "implementation": "packed-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true,
+      "macros": false
+    },
+    "bytes": 41233,
+    "compileMs": 7.888875000000553,
+    "prepareMs": 2027.6881250000006,
+    "validMs": 0.0026731875000001308,
+    "invalidMs": 0.00014445000000014261,
+    "stats": {
+      "synthesizedCells": 16,
+      "search": {
+        "searches": 0,
+        "hits": 16,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 41233,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "predicates": 128,
+      "exploredStates": 346,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "fast",
+    "config": null,
+    "bytes": 21935,
+    "compileMs": 2.266083999998955,
+    "prepareMs": 37.857333000003564,
+    "validMs": 0.0014227500000000874,
+    "invalidMs": 0.0001081624999998894,
+    "stats": {
+      "bytes": 21935,
+      "definitions": 162,
+      "decisionNodes": 230,
+      "predicates": 71,
+      "exploredStates": 258,
+      "maxDigitTests": 60
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "production",
+    "config": null,
+    "bytes": 16315,
+    "compileMs": 4.06025000000227,
+    "prepareMs": 202.37349999999788,
+    "validMs": 0.0012107082999998965,
+    "invalidMs": 0.00046641659999986586,
+    "stats": {
+      "bytes": 16315,
+      "definitions": 168,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 258,
+      "maxDigitTests": 60
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-none-0",
+    "config": {
+      "mode": "none",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 21565,
+    "compileMs": 2.24487500000032,
+    "prepareMs": 33.300499999997555,
+    "validMs": 0.0015544832999999927,
+    "invalidMs": 0.00023368750000008731,
+    "stats": {
+      "synthesizedCells": 0,
+      "search": {
+        "searches": 0,
+        "hits": 0,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21565,
+      "definitions": 159,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 258,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 20989,
+    "compileMs": 2.85791700000118,
+    "prepareMs": 35.296957999998995,
+    "validMs": 0.0017466875000001893,
+    "invalidMs": 0.0001540041000000201,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 5,
+        "hits": 8,
+        "states": 449,
+        "partitions": 1250,
+        "verifiedRows": 40,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20989,
+      "definitions": 147,
+      "decisionNodes": 234,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-binary-24",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 20875,
+    "compileMs": 2.54108400000041,
+    "prepareMs": 33.3703749999986,
+    "validMs": 0.0015074540999998134,
+    "invalidMs": 0.00006624579999988783,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 5,
+        "hits": 8,
+        "states": 449,
+        "partitions": 1250,
+        "verifiedRows": 40,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20875,
+      "definitions": 144,
+      "decisionNodes": 229,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 21089,
+    "compileMs": 2.441333000002487,
+    "prepareMs": 34.867333999998664,
+    "validMs": 0.0014559000000001106,
+    "invalidMs": 0.00008751669999983278,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 5,
+        "hits": 8,
+        "states": 449,
+        "partitions": 1250,
+        "verifiedRows": 40,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21089,
+      "definitions": 150,
+      "decisionNodes": 230,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-binary-1600",
+    "config": {
+      "mode": "binary",
+      "weight": 1600,
+      "packed": false
+    },
+    "bytes": 21142,
+    "compileMs": 2.6407079999989946,
+    "prepareMs": 32.16808400000082,
+    "validMs": 0.0013516583999997238,
+    "invalidMs": 0.00008790829999998095,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 5,
+        "hits": 8,
+        "states": 449,
+        "partitions": 1250,
+        "verifiedRows": 40,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21142,
+      "definitions": 151,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 21792,
+    "compileMs": 6.399124999999913,
+    "prepareMs": 33.51804099999936,
+    "validMs": 0.0012073457999998937,
+    "invalidMs": 0.00019063749999986612,
+    "stats": {
+      "synthesizedCells": 34,
+      "search": {
+        "searches": 4,
+        "hits": 30,
+        "states": 3560,
+        "partitions": 14632,
+        "verifiedRows": 100,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21792,
+      "definitions": 152,
+      "decisionNodes": 231,
+      "predicates": 74,
+      "exploredStates": 130,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 21968,
+    "compileMs": 5.496999999999389,
+    "prepareMs": 33.28199999999924,
+    "validMs": 0.0013068624999999885,
+    "invalidMs": 0.0002726667000002635,
+    "stats": {
+      "synthesizedCells": 34,
+      "search": {
+        "searches": 4,
+        "hits": 30,
+        "states": 3560,
+        "partitions": 14632,
+        "verifiedRows": 100,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21968,
+      "definitions": 159,
+      "decisionNodes": 233,
+      "predicates": 74,
+      "exploredStates": 130,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 21216,
+    "compileMs": 1.8177910000013071,
+    "prepareMs": 34.973000000001775,
+    "validMs": 0.0015384250000002795,
+    "invalidMs": 0.0001424957999999606,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21216,
+      "definitions": 140,
+      "decisionNodes": 234,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 21278,
+    "compileMs": 1.93316699999923,
+    "prepareMs": 32.0958329999994,
+    "validMs": 0.001333037499999773,
+    "invalidMs": 0.00007305000000014843,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21278,
+      "definitions": 144,
+      "decisionNodes": 231,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 21492,
+    "compileMs": 1.7464160000017728,
+    "prepareMs": 32.46029100000305,
+    "validMs": 0.0012023083000000042,
+    "invalidMs": 0.00008634160000001429,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21492,
+      "definitions": 150,
+      "decisionNodes": 232,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 15893,
+    "compileMs": 2.5947909999995318,
+    "prepareMs": 167.4975830000003,
+    "validMs": 0.0018815875000000233,
+    "invalidMs": 0.0001725458000000799,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 0,
+        "hits": 13,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 15893,
+      "definitions": 162,
+      "decisionNodes": 234,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-binary-24",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 15901,
+    "compileMs": 4.4820419999996375,
+    "prepareMs": 187.82474999999977,
+    "validMs": 0.0014909042000002955,
+    "invalidMs": 0.00006722090000002936,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 0,
+        "hits": 13,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 15901,
+      "definitions": 153,
+      "decisionNodes": 229,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 15979,
+    "compileMs": 3.031875000000582,
+    "prepareMs": 186.5814169999976,
+    "validMs": 0.0013064833000000363,
+    "invalidMs": 0.0004709958999999799,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 0,
+        "hits": 13,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 15979,
+      "definitions": 159,
+      "decisionNodes": 230,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-binary-1600",
+    "config": {
+      "mode": "binary",
+      "weight": 1600,
+      "packed": true
+    },
+    "bytes": 16023,
+    "compileMs": 2.409417000002577,
+    "prepareMs": 183.49216700000034,
+    "validMs": 0.0012714959000000817,
+    "invalidMs": 0.00045501250000015714,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 0,
+        "hits": 13,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16023,
+      "definitions": 160,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 16662,
+    "compileMs": 2.7484999999978754,
+    "prepareMs": 234.32754199999908,
+    "validMs": 0.0009824875000002066,
+    "invalidMs": 0.0004952416000000084,
+    "stats": {
+      "synthesizedCells": 34,
+      "search": {
+        "searches": 0,
+        "hits": 34,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16662,
+      "definitions": 173,
+      "decisionNodes": 231,
+      "predicates": 74,
+      "exploredStates": 130,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 16698,
+    "compileMs": 2.418792000000394,
+    "prepareMs": 241.50491600000169,
+    "validMs": 0.0009682084000000032,
+    "invalidMs": 0.000443604200000118,
+    "stats": {
+      "synthesizedCells": 34,
+      "search": {
+        "searches": 0,
+        "hits": 34,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16698,
+      "definitions": 172,
+      "decisionNodes": 233,
+      "predicates": 74,
+      "exploredStates": 130,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 16221,
+    "compileMs": 2.442750000001979,
+    "prepareMs": 177.44920899999852,
+    "validMs": 0.0013911874999997962,
+    "invalidMs": 0.00018537500000020371,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16221,
+      "definitions": 167,
+      "decisionNodes": 234,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 16276,
+    "compileMs": 2.7272919999995793,
+    "prepareMs": 198.19049999999697,
+    "validMs": 0.0013770832999998675,
+    "invalidMs": 0.00007402909999982512,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16276,
+      "definitions": 157,
+      "decisionNodes": 231,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 16358,
+    "compileMs": 2.6104169999998703,
+    "prepareMs": 208.53545900000245,
+    "validMs": 0.0009564583999999741,
+    "invalidMs": 0.0004774082999996608,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16358,
+      "definitions": 163,
+      "decisionNodes": 232,
+      "predicates": 74,
+      "exploredStates": 61,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "flat-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": false,
+      "macros": false
+    },
+    "bytes": 21565,
+    "compileMs": 1.8713749999988067,
+    "prepareMs": 34.19029199999932,
+    "validMs": 0.0014125457999998616,
+    "invalidMs": 0.0002770667000000685,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 5,
+        "hits": 8,
+        "states": 101,
+        "partitions": 90,
+        "verifiedRows": 40,
+        "budgetFallbacks": 0
+      },
+      "bytes": 21565,
+      "definitions": 159,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "allocation",
+    "implementation": "packed-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true,
+      "macros": false
+    },
+    "bytes": 16315,
+    "compileMs": 2.0999159999992116,
+    "prepareMs": 204.42579100000148,
+    "validMs": 0.0012181209000002126,
+    "invalidMs": 0.0004429291000000376,
+    "stats": {
+      "synthesizedCells": 13,
+      "search": {
+        "searches": 0,
+        "hits": 13,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 16315,
+      "definitions": 168,
+      "decisionNodes": 231,
+      "predicates": 71,
+      "exploredStates": 189,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "fast",
+    "config": null,
+    "bytes": 28167,
+    "compileMs": 2.475166000000172,
+    "prepareMs": 37.97766599999886,
+    "validMs": 0.001635216699999728,
+    "invalidMs": 0.0013849165999999969,
+    "stats": {
+      "bytes": 28167,
+      "definitions": 220,
+      "decisionNodes": 284,
+      "predicates": 97,
+      "exploredStates": 272,
+      "maxDigitTests": 72
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "production",
+    "config": null,
+    "bytes": 20510,
+    "compileMs": 3.2474999999976717,
+    "prepareMs": 404.25408400000015,
+    "validMs": 0.001790112500000032,
+    "invalidMs": 0.001386175000000003,
+    "stats": {
+      "bytes": 20510,
+      "definitions": 226,
+      "decisionNodes": 284,
+      "predicates": 97,
+      "exploredStates": 272,
+      "maxDigitTests": 72
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-none-0",
+    "config": {
+      "mode": "none",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 27278,
+    "compileMs": 2.705082999997103,
+    "prepareMs": 40.69537499999933,
+    "validMs": 0.0019887833999997382,
+    "invalidMs": 0.0013338084000002709,
+    "stats": {
+      "synthesizedCells": 0,
+      "search": {
+        "searches": 0,
+        "hits": 0,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 27278,
+      "definitions": 213,
+      "decisionNodes": 284,
+      "predicates": 97,
+      "exploredStates": 272,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 26802,
+    "compileMs": 2.771082999999635,
+    "prepareMs": 39.85791700000118,
+    "validMs": 0.003024687500000073,
+    "invalidMs": 0.002357562500000131,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 2,
+        "hits": 9,
+        "states": 230,
+        "partitions": 730,
+        "verifiedRows": 16,
+        "budgetFallbacks": 0
+      },
+      "bytes": 26802,
+      "definitions": 197,
+      "decisionNodes": 294,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-binary-24",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 26446,
+    "compileMs": 2.4215409999997064,
+    "prepareMs": 38.09529200000179,
+    "validMs": 0.002224570799999856,
+    "invalidMs": 0.0013352624999999534,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 2,
+        "hits": 9,
+        "states": 230,
+        "partitions": 730,
+        "verifiedRows": 16,
+        "budgetFallbacks": 0
+      },
+      "bytes": 26446,
+      "definitions": 202,
+      "decisionNodes": 278,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 26577,
+    "compileMs": 2.7227080000011483,
+    "prepareMs": 44.105790999998135,
+    "validMs": 0.002307958299999882,
+    "invalidMs": 0.0010915583000001788,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 2,
+        "hits": 9,
+        "states": 230,
+        "partitions": 730,
+        "verifiedRows": 16,
+        "budgetFallbacks": 0
+      },
+      "bytes": 26577,
+      "definitions": 207,
+      "decisionNodes": 279,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 27538,
+    "compileMs": 18.18220900000233,
+    "prepareMs": 40.7978329999969,
+    "validMs": 0.0019378625000001193,
+    "invalidMs": 0.0012354707999998936,
+    "stats": {
+      "synthesizedCells": 36,
+      "search": {
+        "searches": 10,
+        "hits": 26,
+        "states": 9326,
+        "partitions": 45772,
+        "verifiedRows": 250,
+        "budgetFallbacks": 0
+      },
+      "bytes": 27538,
+      "definitions": 202,
+      "decisionNodes": 284,
+      "predicates": 100,
+      "exploredStates": 128,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 27522,
+    "compileMs": 14.719958000001498,
+    "prepareMs": 39.24516600000061,
+    "validMs": 0.002112545799999498,
+    "invalidMs": 0.0013334374999998545,
+    "stats": {
+      "synthesizedCells": 36,
+      "search": {
+        "searches": 10,
+        "hits": 26,
+        "states": 9326,
+        "partitions": 45772,
+        "verifiedRows": 250,
+        "budgetFallbacks": 0
+      },
+      "bytes": 27522,
+      "definitions": 208,
+      "decisionNodes": 285,
+      "predicates": 100,
+      "exploredStates": 128,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": false
+    },
+    "bytes": 27058,
+    "compileMs": 2.3287080000009155,
+    "prepareMs": 39.628208000001905,
+    "validMs": 0.002772408400000131,
+    "invalidMs": 0.002316829200000211,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 27058,
+      "definitions": 186,
+      "decisionNodes": 294,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": false
+    },
+    "bytes": 26692,
+    "compileMs": 2.0849170000001322,
+    "prepareMs": 42.63287499999569,
+    "validMs": 0.002201091599999927,
+    "invalidMs": 0.001453691699999763,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 26692,
+      "definitions": 197,
+      "decisionNodes": 279,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": false
+    },
+    "bytes": 26825,
+    "compileMs": 2.3085829999981797,
+    "prepareMs": 38.99779200000194,
+    "validMs": 0.0024905916000003345,
+    "invalidMs": 0.0011951124999999593,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 26825,
+      "definitions": 202,
+      "decisionNodes": 280,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 20181,
+    "compileMs": 3.038250000005064,
+    "prepareMs": 367.86999999999534,
+    "validMs": 0.002870458299999882,
+    "invalidMs": 0.002280533299999661,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 0,
+        "hits": 11,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20181,
+      "definitions": 215,
+      "decisionNodes": 294,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-binary-24",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 19979,
+    "compileMs": 2.969375000000582,
+    "prepareMs": 417.3153749999983,
+    "validMs": 0.0020391875000001164,
+    "invalidMs": 0.0014398624999994354,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 0,
+        "hits": 11,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 19979,
+      "definitions": 215,
+      "decisionNodes": 278,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-binary-400",
+    "config": {
+      "mode": "binary",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 20088,
+    "compileMs": 2.618625000002794,
+    "prepareMs": 395.83808300000237,
+    "validMs": 0.0021298750000001746,
+    "invalidMs": 0.0017091999999996916,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 0,
+        "hits": 11,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20088,
+      "definitions": 220,
+      "decisionNodes": 279,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-pairs-0",
+    "config": {
+      "mode": "pairs",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 20909,
+    "compileMs": 2.8371249999981956,
+    "prepareMs": 408.500082999999,
+    "validMs": 0.0016373124999998253,
+    "invalidMs": 0.0012185916999995243,
+    "stats": {
+      "synthesizedCells": 36,
+      "search": {
+        "searches": 0,
+        "hits": 36,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20909,
+      "definitions": 233,
+      "decisionNodes": 284,
+      "predicates": 100,
+      "exploredStates": 128,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-pairs-24",
+    "config": {
+      "mode": "pairs",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 20828,
+    "compileMs": 3.8977909999957774,
+    "prepareMs": 417.4510420000006,
+    "validMs": 0.001790191700000287,
+    "invalidMs": 0.0013958666999998968,
+    "stats": {
+      "synthesizedCells": 36,
+      "search": {
+        "searches": 0,
+        "hits": 36,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20828,
+      "definitions": 227,
+      "decisionNodes": 285,
+      "predicates": 100,
+      "exploredStates": 128,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-both-0",
+    "config": {
+      "mode": "both",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 20591,
+    "compileMs": 2.9356249999982538,
+    "prepareMs": 380.536417000003,
+    "validMs": 0.0027137708000002023,
+    "invalidMs": 0.0023289208000001962,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20591,
+      "definitions": 222,
+      "decisionNodes": 294,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-both-24",
+    "config": {
+      "mode": "both",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 20305,
+    "compileMs": 4.5286249999990105,
+    "prepareMs": 433.0368329999983,
+    "validMs": 0.0020636416999994254,
+    "invalidMs": 0.001426954200000182,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20305,
+      "definitions": 216,
+      "decisionNodes": 279,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-both-400",
+    "config": {
+      "mode": "both",
+      "weight": 400,
+      "packed": true
+    },
+    "bytes": 20411,
+    "compileMs": 3.179208000001381,
+    "prepareMs": 395.9462080000012,
+    "validMs": 0.0019272250000001805,
+    "invalidMs": 0.0016499416999999086,
+    "stats": {
+      "synthesizedCells": 47,
+      "search": {
+        "searches": 0,
+        "hits": 47,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20411,
+      "definitions": 221,
+      "decisionNodes": 280,
+      "predicates": 100,
+      "exploredStates": 59,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "flat-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": false,
+      "macros": false
+    },
+    "bytes": 27275,
+    "compileMs": 2.557333999997354,
+    "prepareMs": 44.63037500000064,
+    "validMs": 0.002172229199999856,
+    "invalidMs": 0.0012588166000001364,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 2,
+        "hits": 9,
+        "states": 54,
+        "partitions": 54,
+        "verifiedRows": 16,
+        "budgetFallbacks": 0
+      },
+      "bytes": 27275,
+      "definitions": 213,
+      "decisionNodes": 284,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  },
+  {
+    "name": "carry",
+    "implementation": "packed-binary-no-macros",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true,
+      "macros": false
+    },
+    "bytes": 20510,
+    "compileMs": 2.7632920000032755,
+    "prepareMs": 455.00054100000125,
+    "validMs": 0.0017940166000000317,
+    "invalidMs": 0.0015062291000002006,
+    "stats": {
+      "synthesizedCells": 11,
+      "search": {
+        "searches": 0,
+        "hits": 11,
+        "states": 0,
+        "partitions": 0,
+        "verifiedRows": 0,
+        "budgetFallbacks": 0
+      },
+      "bytes": 20510,
+      "definitions": 226,
+      "decisionNodes": 284,
+      "predicates": 97,
+      "exploredStates": 203,
+      "maxDigitTests": null
+    }
+  }
+]

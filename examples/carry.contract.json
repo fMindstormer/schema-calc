@@ -1,0 +1,13 @@
+{
+  "title": "A carry across every decimal place",
+  "integerDigits": 4,
+  "scale": 2,
+  "fields": [
+    "balance",
+    "deposit",
+    "result"
+  ],
+  "constraints": [
+    "result = balance + deposit"
+  ]
+}

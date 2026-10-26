@@ -1,0 +1,309 @@
+[
+  {
+    "name": "invoice",
+    "file": "invoice.candidate.schema.json",
+    "implementation": "packed-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 39798,
+    "purpose": "Smallest searched candidate, not an approved replacement. See performance comparisons.",
+    "comparisons": [
+      {
+        "name": "invoice",
+        "baseline": "production",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 39798,
+          "sizeRatio": 0.965221187427241,
+          "ratios": {
+            "ajv/valid": 1.0388618444150404,
+            "ajv/invalid": 1.0908383683860148,
+            "ajv/malformed": 1.680868031674139,
+            "python/valid": 1.8998097344068732,
+            "python/invalid": 1.7702147564508894,
+            "python/malformed": 1.1642407708718456
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "invoice",
+        "baseline": "fast",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 39798,
+          "sizeRatio": 0.6975985977212971,
+          "ratios": {
+            "ajv/valid": 1.2494252903004037,
+            "ajv/invalid": 0.9484712577911032,
+            "ajv/malformed": 2.6488530934434533,
+            "python/valid": 30.006720665503806,
+            "python/invalid": 54.66198577079712,
+            "python/malformed": 1.1326942356130856
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "invoice",
+        "baseline": "flat-none-0",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 39798,
+          "sizeRatio": 0.7076332213154105,
+          "ratios": {
+            "ajv/valid": 1.1388934733031904,
+            "ajv/invalid": 0.5137319124143066,
+            "ajv/malformed": 1.2753360413014463,
+            "python/valid": 29.465011795540892,
+            "python/invalid": 51.994687316733106,
+            "python/malformed": 1.0488973811316988
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "invoice",
+        "baseline": "prior-pair",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 39798,
+          "sizeRatio": 1.03125,
+          "ratios": {
+            "ajv/valid": 0.8676131493754884,
+            "ajv/invalid": 0.8522353860412888,
+            "ajv/malformed": 1.0894947933361976,
+            "python/valid": 1.9254040337003844,
+            "python/invalid": 1.9082168049186115,
+            "python/malformed": 1.0661186212292446
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      }
+    ]
+  },
+  {
+    "name": "allocation",
+    "file": "allocation.candidate.schema.json",
+    "implementation": "packed-binary-0",
+    "config": {
+      "mode": "binary",
+      "weight": 0,
+      "packed": true
+    },
+    "bytes": 15893,
+    "purpose": "Smallest searched candidate, not an approved replacement. See performance comparisons.",
+    "comparisons": [
+      {
+        "name": "allocation",
+        "baseline": "production",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 15893,
+          "sizeRatio": 0.9741342323015629,
+          "ratios": {
+            "ajv/valid": 1.2256644314822867,
+            "ajv/invalid": 1.423002433272174,
+            "ajv/malformed": 1.7675280480709763,
+            "python/valid": 1.8345078886691262,
+            "python/invalid": 2.1629555553396553,
+            "python/malformed": 0.8562361797740479
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "allocation",
+        "baseline": "fast",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 15893,
+          "sizeRatio": 0.724549806245726,
+          "ratios": {
+            "ajv/valid": 1.3183173514139865,
+            "ajv/invalid": 1.3379245932233992,
+            "ajv/malformed": 4.832149110522989,
+            "python/valid": 26.269641354213984,
+            "python/invalid": 41.87261599547675,
+            "python/malformed": 1.0680960431482331
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "allocation",
+        "baseline": "flat-none-0",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 15893,
+          "sizeRatio": 0.7369812195687456,
+          "ratios": {
+            "ajv/valid": 1.1950681977523827,
+            "ajv/invalid": 1.286551406598641,
+            "ajv/malformed": 1.7386891646180918,
+            "python/valid": 25.786083809075187,
+            "python/invalid": 41.064737348971576,
+            "python/malformed": 1.04506681935836
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "allocation",
+        "baseline": "prior-pair",
+        "smallest": {
+          "implementation": "packed-binary-0",
+          "bytes": 15893,
+          "sizeRatio": 0.989108787652477,
+          "ratios": {
+            "ajv/valid": 1.097814194474753,
+            "ajv/invalid": 1.3870112742503764,
+            "ajv/malformed": 1.103962142627613,
+            "python/valid": 1.1745807177975034,
+            "python/invalid": 1.4605296553391651,
+            "python/malformed": 1.0733584758231094
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [
+          "packed-binary-1600"
+        ],
+        "withinFivePercent": [
+          "packed-binary-400",
+          "packed-binary-1600"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "carry",
+    "file": "carry.candidate.schema.json",
+    "implementation": "packed-binary-24",
+    "config": {
+      "mode": "binary",
+      "weight": 24,
+      "packed": true
+    },
+    "bytes": 19979,
+    "purpose": "Smallest searched candidate, not an approved replacement. See performance comparisons.",
+    "comparisons": [
+      {
+        "name": "carry",
+        "baseline": "production",
+        "smallest": {
+          "implementation": "packed-binary-24",
+          "bytes": 19979,
+          "sizeRatio": 0.9741101901511457,
+          "ratios": {
+            "ajv/valid": 1.0880480085508506,
+            "ajv/invalid": 1.0171456008172735,
+            "ajv/malformed": 0.8933388324945851,
+            "python/valid": 1.0864457585978502,
+            "python/invalid": 1.0015505120566655,
+            "python/malformed": 0.9750736770170418
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [
+          "packed-both-24",
+          "packed-both-400"
+        ],
+        "withinFivePercent": [
+          "packed-both-24",
+          "packed-both-400"
+        ]
+      },
+      {
+        "name": "carry",
+        "baseline": "fast",
+        "smallest": {
+          "implementation": "packed-binary-24",
+          "bytes": 19979,
+          "sizeRatio": 0.7093052153228956,
+          "ratios": {
+            "ajv/valid": 1.1185529244902002,
+            "ajv/invalid": 1.0368201603665534,
+            "ajv/malformed": 2.1914550460762894,
+            "python/valid": 20.043099267364013,
+            "python/invalid": 34.80985208241607,
+            "python/malformed": 0.9805976717999143
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "carry",
+        "baseline": "flat-none-0",
+        "smallest": {
+          "implementation": "packed-binary-24",
+          "bytes": 19979,
+          "sizeRatio": 0.732421731798519,
+          "ratios": {
+            "ajv/valid": 1.0666146050386198,
+            "ajv/invalid": 0.6743121248105864,
+            "ajv/malformed": 0.9642171264806111,
+            "python/valid": 18.824270566809638,
+            "python/invalid": 33.102465399087095,
+            "python/malformed": 1.1866161818094583
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": false
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": []
+      },
+      {
+        "name": "carry",
+        "baseline": "prior-pair",
+        "smallest": {
+          "implementation": "packed-binary-24",
+          "bytes": 19979,
+          "sizeRatio": 0.9874950573349149,
+          "ratios": {
+            "ajv/valid": 0.8900242189846799,
+            "ajv/invalid": 0.8182709279458423,
+            "ajv/malformed": 0.8925040657365351,
+            "python/valid": 0.9009068921591034,
+            "python/invalid": 0.8937386428416049,
+            "python/malformed": 1.0464373862883094
+          },
+          "allMediansNoHigher": false,
+          "withinFivePercent": true
+        },
+        "allMediansNoHigher": [],
+        "withinFivePercent": [
+          "packed-binary-24"
+        ]
+      }
+    ]
+  }
+]

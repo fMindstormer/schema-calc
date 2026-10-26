@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compile exact decimal arithmetic into an ordinary, portable JSON Schema file.">
+  <title>Schema Calc — a schema that does the math</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main>
+    <nav aria-label="Project"><a class="brand" href="./"><span class="mark">∑</span> schema calc<span class="version">v0.1.0</span></a><span class="local"><span></span> Runs locally in your browser</span></nav>
+    <header>
+      <p class="eyebrow">ARITHMETIC → JSON SCHEMA</p>
+      <h1>A schema that<br>does the math<span class="dot">.</span></h1>
+      <p class="intro">Write an equation. Download its schema.<br>Exact decimal checks across fields, using your existing validator.</p>
+    </header>
+    <div class="workspace-heading"><div class="presets" role="group" aria-label="Examples"><button data-preset="invoice" aria-pressed="true">Invoice</button><button data-preset="allocation" aria-pressed="false">Allocation</button><button data-preset="carry" aria-pressed="false">Carry chain</button></div><button class="quiet" id="reset">Reset example ↺</button></div>
+    <section class="editors" aria-label="Compile and validate">
+      <div class="editor"><div class="editor-heading"><label for="contract"><span>01</span> Define the contract</label><span class="file-type">JSON</span></div><textarea id="contract" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="contract-help"></textarea><p class="editor-help" id="contract-help">Use <code>+</code>, <code>-</code> and <code>=</code>. Bounds apply to every field.</p></div>
+      <div class="editor"><div class="editor-heading"><label for="record"><span>02</span> Try a record</label><button class="tamper" id="tamper">Add one cent</button></div><textarea id="record" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="record-help"></textarea><p class="editor-help" id="record-help">Amounts are strings. A single wrong cent should fail.</p></div>
+    </section>
+    <div class="encoding"><label for="encoding">Validation format</label><select id="encoding"><option value="flat">Original JSON</option><option value="tally">Compact tally JSON</option></select><p id="encoding-help">Validates the decimal-string record exactly as shown above.</p></div>
+    <section class="result" id="result" data-state="pending" aria-live="polite" aria-atomic="true"><div class="result-symbol" aria-hidden="true"></div><div><h2 id="status-title">Checking…</h2><p id="status-description">Preparing the generated schema.</p></div><span class="engine">Validated by Ajv</span></section>
+    <details id="error-details" hidden><summary>Inspect validator errors</summary><pre id="validator-errors"></pre></details>
+    <section class="artifact" aria-label="Generated schema">
+      <div class="artifact-top"><div><p class="eyebrow">THE OUTPUT</p><h2>One portable schema file.</h2><p>Standard Draft 2020-12. No custom keywords or validation hooks.</p></div><button class="download" id="download" disabled>Download .schema.json <span>↓</span></button></div>
+      <div class="metrics"><div><span class="metric-label">SCHEMA SIZE</span><strong id="schema-size">—</strong></div><div><span class="metric-label" id="node-label">DECISION NODES</span><strong id="node-count">—</strong></div><div><span class="metric-label" id="steps-label">DIGIT TESTS / RECORD</span><strong id="steps">—</strong></div><div><span class="metric-label">LAST VALIDATION</span><strong id="timing">—</strong></div></div>
+      <details class="source"><summary>Inspect the actual generated schema <span>JSON ↗</span></summary><pre id="schema-preview"></pre></details>
+      <details class="source"><summary>Inspect JSON passed to the validator <span>JSON ↗</span></summary><pre id="payload-preview"></pre></details>
+      <button class="quiet" id="download-record" disabled>Download validation JSON ↓</button>
+      <p class="compile-time" id="compile-time"></p>
+    </section>
+    <section class="notes"><div><h3>How it works</h3><p>Original JSON uses digit tests and a carry graph. Compact tally JSON uses standard <code>contains</code> counts and a small recursive adder. Neither encoding needs custom validator logic.</p></div><div><h3>Deliberately bounded</h3><p>The compiler supports sums and differences of nonnegative decimal strings, constants and multiple equalities. No multiplication, comparisons or signed input amounts yet. The compact encoding changes the exported record format.</p></div></section>
+    <footer><span>SCHEMA CALC · RESEARCH PROTOTYPE</span><span class="links"><a href="https://github.com/fMindstormer/schema-calc" target="_blank" rel="noreferrer">Source on GitHub ↗</a><a href="https://json-schema.org/draft/2020-12" target="_blank" rel="noreferrer">Built on the JSON Schema standard ↗</a></span></footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "title": "Percentages must sum to 100",
+  "integerDigits": 3,
+  "scale": 2,
+  "fields": [
+    "research",
+    "engineering",
+    "operations"
+  ],
+  "constraints": [
+    "research + engineering + operations = 100.00"
+  ]
+}

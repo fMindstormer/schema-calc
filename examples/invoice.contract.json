@@ -1,0 +1,14 @@
+{
+  "title": "Invoice arithmetic",
+  "integerDigits": 4,
+  "scale": 2,
+  "fields": [
+    "subtotal",
+    "shipping",
+    "discount",
+    "total"
+  ],
+  "constraints": [
+    "total = subtotal + shipping - discount"
+  ]
+}

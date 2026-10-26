@@ -1,0 +1,80 @@
+{
+  "node": "v24.6.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "methodology": "Compact UTF-8 JSON; identical contracts and input domains. Ajv strict:true, inlineRefs:false for both. Validation: median of 5 batches of 1000 after 100 warmups. Compiler and preparation: one run; indicative, not a rigorous performance study.",
+  "rows": [
+    {
+      "name": "invoice",
+      "implementation": "baseline",
+      "bytes": 284300,
+      "gzipBytes": 25927,
+      "definitions": 2569,
+      "decisionNodes": 2353,
+      "compileMs": 8.026708000000003,
+      "prepareMs": 345.317541,
+      "validMs": 0.004489374999999995,
+      "invalidMs": 0.0006190829999999891
+    },
+    {
+      "name": "invoice",
+      "implementation": "optimized",
+      "bytes": 57050,
+      "gzipBytes": 5864,
+      "definitions": 386,
+      "decisionNodes": 660,
+      "compileMs": 5.236625000000004,
+      "prepareMs": 77.8175,
+      "validMs": 0.004953374999999937,
+      "invalidMs": 0.0006784999999999854
+    },
+    {
+      "name": "allocation",
+      "implementation": "baseline",
+      "bytes": 94025,
+      "gzipBytes": 8639,
+      "definitions": 859,
+      "decisionNodes": 739,
+      "compileMs": 3.436040999999932,
+      "prepareMs": 108.17237499999999,
+      "validMs": 0.0018264580000000024,
+      "invalidMs": 0.0004480419999999867
+    },
+    {
+      "name": "allocation",
+      "implementation": "optimized",
+      "bytes": 21935,
+      "gzipBytes": 2510,
+      "definitions": 162,
+      "decisionNodes": 230,
+      "compileMs": 1.901666999999975,
+      "prepareMs": 32.2941669999999,
+      "validMs": 0.00160775000000001,
+      "invalidMs": 0.0002598329999999578
+    },
+    {
+      "name": "carry",
+      "implementation": "baseline",
+      "bytes": 129290,
+      "gzipBytes": 11591,
+      "definitions": 1182,
+      "decisionNodes": 1020,
+      "compileMs": 6.860457999999994,
+      "prepareMs": 150.44674999999995,
+      "validMs": 0.003480083000000036,
+      "invalidMs": 0.0037810830000000804
+    },
+    {
+      "name": "carry",
+      "implementation": "optimized",
+      "bytes": 28167,
+      "gzipBytes": 3121,
+      "definitions": 220,
+      "decisionNodes": 284,
+      "compileMs": 2.185999999999922,
+      "prepareMs": 37.48854199999994,
+      "validMs": 0.002087333999999828,
+      "invalidMs": 0.0018627500000000055
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "schema-calc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Compile bounded decimal arithmetic into ordinary JSON Schema.",
+  "homepage": "https://fmindstormer.github.io/schema-calc/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fMindstormer/schema-calc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fMindstormer/schema-calc/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "examples": "node scripts/examples.mjs",
+    "benchmark": "node bench/compare.mjs",
+    "benchmark:tally": "node bench/tally-compare.mjs && .venv/bin/python bench/tally-compare.py",
+    "benchmark:flat": "node bench/flat-compare.mjs && .venv/bin/python bench/flat-compare.py",
+    "check:flat-experiment": "node bench/check-flat-experiment.mjs && .venv/bin/python test/cross_validate.py test/flat-experiment-corpus.json",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "check:python": ".venv/bin/python test/cross_validate.py",
+    "check:tally": ".venv/bin/python test/cross_validate.py test/tally-corpus.json",
+    "superoptimizer:screen": "node bench/superoptimizer/screen.mjs",
+    "superoptimizer:benchmark": "node bench/superoptimizer/compare.mjs && .venv/bin/python bench/superoptimizer/compare.py && node bench/superoptimizer/summarize.mjs",
+    "superoptimizer:check": "node bench/superoptimizer/check.mjs && .venv/bin/python bench/superoptimizer/check.py",
+    "superoptimizer:confirm": "node bench/superoptimizer/confirm.mjs && .venv/bin/python bench/superoptimizer/confirm.py",
+    "demo": "node examples/validate.mjs",
+    "check:examples": "node scripts/examples.mjs --check"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "esbuild": "0.28.2"
+  },
+  "license": "MIT",
+  "author": "fMindstormer",
+  "keywords": [
+    "json-schema",
+    "compiler",
+    "finite-automata",
+    "decimal-arithmetic",
+    "superoptimization"
+  ]
+}

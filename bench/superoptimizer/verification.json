@@ -1,0 +1,35 @@
+{
+  "ajvCases": 146868,
+  "schemas": 204,
+  "sourceContracts": 34,
+  "search": {
+    "searches": 342,
+    "hits": 3561,
+    "states": 954516,
+    "partitions": 16038380,
+    "verifiedRows": 6198,
+    "budgetFallbacks": 0
+  },
+  "certificates": 342,
+  "microCases": 22828,
+  "microSchemas": 1328,
+  "python": {
+    "version": "3.13.3",
+    "jsonschema": "4.25.1",
+    "correctnessWorkers": 4,
+    "checks": {
+      "full": {
+        "cases": 146868,
+        "schemas": 204,
+        "elapsedSeconds": 150.9817311250372,
+        "metaSchemaChecked": true
+      },
+      "local": {
+        "cases": 22828,
+        "schemas": 1328,
+        "elapsedSeconds": 1.648356582969427,
+        "metaSchemaChecked": true
+      }
+    }
+  }
+}

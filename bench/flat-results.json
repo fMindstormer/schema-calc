@@ -1,0 +1,129 @@
+{
+  "node": "v24.6.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "methodology": "Identical original flat JSON, equations and precision for all variants; no input conversion or helper. Compact UTF-8 bytes. Stock Ajv strict:true, inlineRefs:false. Warm validation: median of 5 batches of 10000 after 1000 warmups. One compiler/preparation run. Experimental phase selection minimizes schema bytes, not validation time.",
+  "rows": [
+    {
+      "name": "invoice",
+      "implementation": "mixed-radix",
+      "bytes": 57050,
+      "payloadBytes": 75,
+      "compileMs": 7.092208000000003,
+      "prepareMs": 109.546458,
+      "validMs": 0.002782612499999999,
+      "invalidMs": 0.00042210829999999645,
+      "pythonValidMs": 1.3441332994261757,
+      "pythonInvalidMs": 0.08406460110563785
+    },
+    {
+      "name": "invoice",
+      "implementation": "packed",
+      "bytes": 41232,
+      "payloadBytes": 75,
+      "compileMs": 12.016249999999957,
+      "prepareMs": 2276.733834,
+      "validMs": 0.0027117041000000426,
+      "invalidMs": 0.0001322624999999789,
+      "pythonValidMs": 12.002529200981371,
+      "pythonInvalidMs": 10.475262501859106
+    },
+    {
+      "name": "invoice",
+      "implementation": "pair-experiment",
+      "bytes": 38592,
+      "payloadBytes": 75,
+      "phases": [
+        0,
+        1
+      ],
+      "compileMs": 25.4270419999998,
+      "prepareMs": 1324.4389160000005,
+      "validMs": 0.003951225000000068,
+      "invalidMs": 0.0002158582999999453,
+      "pythonValidMs": 14.004441699944437,
+      "pythonInvalidMs": 9.140289601054974
+    },
+    {
+      "name": "allocation",
+      "implementation": "mixed-radix",
+      "bytes": 21935,
+      "payloadBytes": 63,
+      "compileMs": 2.0630419999997684,
+      "prepareMs": 36.831749999999374,
+      "validMs": 0.0016191541999999572,
+      "invalidMs": 9.671250000001237e-05,
+      "pythonValidMs": 0.7684229523874819,
+      "pythonInvalidMs": 0.06678124773316085
+    },
+    {
+      "name": "allocation",
+      "implementation": "packed",
+      "bytes": 16315,
+      "payloadBytes": 63,
+      "compileMs": 3.604041999999936,
+      "prepareMs": 203.67791699999998,
+      "validMs": 0.001188774999999987,
+      "invalidMs": 0.0004314917000000605,
+      "pythonValidMs": 15.82346664799843,
+      "pythonInvalidMs": 3.765647899126634
+    },
+    {
+      "name": "allocation",
+      "implementation": "pair-experiment",
+      "bytes": 16068,
+      "payloadBytes": 63,
+      "phases": [
+        0
+      ],
+      "compileMs": 11.416999999999462,
+      "prepareMs": 211.36704199999986,
+      "validMs": 0.0015119416999999885,
+      "invalidMs": 0.000471245799999997,
+      "pythonValidMs": 15.759947948390618,
+      "pythonInvalidMs": 3.7064562522573397
+    },
+    {
+      "name": "carry",
+      "implementation": "mixed-radix",
+      "bytes": 28167,
+      "payloadBytes": 56,
+      "compileMs": 4.040665999999874,
+      "prepareMs": 46.4497080000001,
+      "validMs": 0.001748241700000017,
+      "invalidMs": 0.001428308300000026,
+      "pythonValidMs": 0.8928124996600673,
+      "pythonInvalidMs": 0.8233479486079887
+    },
+    {
+      "name": "carry",
+      "implementation": "packed",
+      "bytes": 20510,
+      "payloadBytes": 56,
+      "compileMs": 4.686499999999796,
+      "prepareMs": 399.5921670000007,
+      "validMs": 0.0018437417000000096,
+      "invalidMs": 0.0014719333000000007,
+      "pythonValidMs": 15.355118751176633,
+      "pythonInvalidMs": 15.534062500228174
+    },
+    {
+      "name": "carry",
+      "implementation": "pair-experiment",
+      "bytes": 20232,
+      "payloadBytes": 56,
+      "phases": [
+        0
+      ],
+      "compileMs": 11.795541999999841,
+      "prepareMs": 411.18558399999984,
+      "validMs": 0.001831708300000082,
+      "invalidMs": 0.0015413958000000093,
+      "pythonValidMs": 19.743922899942845,
+      "pythonInvalidMs": 17.349737501353957
+    }
+  ],
+  "python": "3.13.3",
+  "jsonschema": "4.25.1",
+  "pythonMethodology": "Stock Draft202012Validator.is_valid. Median of 5 batches of 20 after 5 warmups; no conversion. Schema meta-validation outside timing."
+}
