@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recording stage</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #f5f6f1; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }
+  #caption { height: 58px; display: flex; align-items: center; gap: 14px; padding: 0 22px; background: #23362d; color: #fff; font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
+  #caption .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #f5f6f1; color: #23362d; font-size: 15px; font-weight: 700; flex: none; }
+  #caption .sub { font-weight: 400; color: #b9c8bd; font-size: 15px; margin-left: auto; }
+  #view { position: relative; height: calc(100% - 58px); }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+  #cursor { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #e0a43ccc; border: 2px solid #fff; box-shadow: 0 1px 6px #0005; left: 480px; top: 300px; transform: translate(-50%, -50%); transition: left .7s ease, top .7s ease, transform .15s; pointer-events: none; z-index: 5; opacity: 0; }
+  #cursor.down { transform: translate(-50%, -50%) scale(.7); }
+  #tray { position: absolute; right: 14px; bottom: 14px; background: #fff; border: 1px solid #c9d3c2; border-radius: 8px; padding: 10px 14px; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #23362d; box-shadow: 0 4px 16px #2032261f; display: none; z-index: 4; }
+  #tray b { font: 600 11px -apple-system, sans-serif; color: #66736c; letter-spacing: .6px; display: block; margin-bottom: 4px; }
+  #terminal { position: absolute; inset: 0; background: #1d2621; color: #d6e2d8; font: 17px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 26px 30px; opacity: 0; transition: opacity .4s; white-space: pre-wrap; z-index: 6; pointer-events: none; }
+  #terminal.on { opacity: 1; }
+  #terminal .prompt { color: #8fb79a; }
+  #terminal .dim { color: #92a397; }
+  #terminal .reject { color: #ff8f80; font-weight: 700; }
+  #terminal .accept { color: #8fe0a4; font-weight: 700; }
+  #terminal .title { color: #92a397; font: 13px -apple-system, sans-serif; letter-spacing: .5px; margin-bottom: 14px; display: block; }
+</style>
+</head>
+<body>
+  <div id="caption"></div>
+  <div id="view">
+    <iframe id="app" title="Schema Calc playground"></iframe>
+    <div id="cursor"></div>
+    <div id="tray"><b>DOWNLOADED</b><div id="files"></div></div>
+    <div id="terminal"><span class="title">TERMINAL · fresh Python venv · only the downloaded files</span><div id="lines"></div></div>
+  </div>
+<script>
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  window.stage = {
+    caption(n, text, sub = '') {
+      document.getElementById('caption').innerHTML = `<span class="n">${n}</span><span>${text}</span>${sub ? `<span class="sub">${sub}</span>` : ''}`;
+    },
+    async point(x, y) { const c = document.getElementById('cursor'); c.style.opacity = 1; c.style.left = x + 'px'; c.style.top = (y - 58) + 'px'; await sleep(750); },
+    async press() { const c = document.getElementById('cursor'); c.classList.add('down'); await sleep(160); c.classList.remove('down'); },
+    hideCursor() { document.getElementById('cursor').style.opacity = 0; },
+    file(name) { const t = document.getElementById('tray'); t.style.display = 'block'; document.getElementById('files').insertAdjacentHTML('beforeend', `<div>${name}</div>`); },
+    showTerminal() { document.getElementById('terminal').classList.add('on'); document.getElementById('tray').style.display = 'none'; this.hideCursor(); },
+    // Types each command, then prints its captured output verbatim.
+    async run(command, output, cls = 'dim') {
+      const lines = document.getElementById('lines');
+      const row = document.createElement('div'); row.innerHTML = '<span class="prompt">$ </span>'; lines.append(row);
+      const typed = document.createElement('span'); row.append(typed);
+      for (const ch of command) { typed.textContent += ch; await sleep(28); }
+      await sleep(350);
+      if (output) { const out = document.createElement('div'); out.className = cls; out.textContent = output; lines.append(out); }
+      await sleep(500);
+    }
+  };
+</script>
+</body>
+</html>

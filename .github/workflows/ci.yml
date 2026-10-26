@@ -37,3 +37,21 @@ jobs:
       - run: npm run build
       - name: Check the source package and documentation links
         run: python scripts/package.py
+
+  handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Download from the playground and validate in a clean Python environment
+        run: npm run check:handoff

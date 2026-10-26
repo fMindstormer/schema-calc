@@ -5,7 +5,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: [src/**, web/**, scripts/build.mjs, package.json, package-lock.json, .github/workflows/pages.yml]
+    paths: [src/**, web/**, examples/validate.py, scripts/build.mjs, package.json, package-lock.json, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:

@@ -196,8 +196,12 @@ h1 {
   border: 1px solid #dae5ce;
   border-radius: 4px;
 }
-.tamper:hover {
+.tamper:hover:not(:disabled) {
   background: #e0edcf;
+}
+.tamper:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 textarea {
   font: 12px/1.7 var(--mono);
@@ -341,14 +345,80 @@ textarea:focus {
 .download:hover:not(:disabled) {
   background: var(--green);
 }
-.download span {
+.download span:last-child {
   margin-left: 19px;
   font-size: 16px;
 }
+.download:disabled {
+  opacity: .5;
+}
+.download.secondary {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.download.secondary:hover:not(:disabled) {
+  background: #eef3e7;
+}
+.downloads {
+  display: flex;
+  gap: 10px;
+}
+.boundaries {
+  margin: 22px 0 0;
+  padding: 12px 14px;
+  background: #f6f8f3;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #415b47;
+}
+.boundaries .metric-label {
+  margin-bottom: 4px;
+}
+.handoff {
+  border-top: 1px solid var(--line);
+  padding: 20px 0 6px;
+}
+.handoff h3 {
+  font-size: 14px;
+  font-weight: 650;
+  margin: 0 0 6px;
+}
+.handoff p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.handoff a,
+.compile-time a {
+  color: var(--green);
+}
+.command {
+  position: relative;
+}
+.command pre {
+  margin-bottom: 10px;
+  padding-right: 70px;
+}
+.command button {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+}
+.handoff .expected code {
+  font: 11px var(--mono);
+  color: var(--ink);
+  background: #f6f8f3;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.handoff .handoff-note {
+  color: #6b5a2e;
+}
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 27px 0 25px;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 22px 0 22px;
   gap: 20px;
 }
 .metric-label {
@@ -390,6 +460,10 @@ pre {
   color: #415b47;
   margin: 0 0 15px;
   white-space: pre;
+}
+.compile-time + .compile-time {
+  border-top: 0;
+  padding-top: 0;
 }
 .compile-time {
   color: #81907f;
@@ -458,7 +532,17 @@ footer .links {
     height: 270px;
   }
   .artifact-top {
-    align-items: flex-start;
+    display: block;
+  }
+  .downloads {
+    margin-top: 16px;
+  }
+  .metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .metrics > div:nth-child(4) {
+    border-left: 0;
+    padding-left: 0;
   }
   .metrics {
     gap: 12px;
@@ -513,9 +597,16 @@ footer .links {
     grid-template-columns: 1fr 1fr;
     row-gap: 20px;
   }
-  .metrics > div:nth-child(3) {
+  .metrics > div:nth-child(4) {
+    border-left: 1px solid var(--line);
+    padding-left: 12px;
+  }
+  .metrics > div:nth-child(odd) {
     border-left: 0;
     padding-left: 0;
+  }
+  .downloads {
+    display: block;
   }
   .metrics strong {
     font-size: 21px;
@@ -548,4 +639,3 @@ footer .links {
 .encoding label { font-weight: 600; margin-right: 12px; }
 .encoding select { font: inherit; color: var(--ink); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: white; }
 .encoding p { font-size: 13px; color: var(--muted); max-width: 740px; }
-#download-record { margin-top: 16px; }

@@ -10,7 +10,7 @@ export const presets = {
     },
     valid: { subtotal: '127.50', shipping: '4.95', discount: '10.00', total: '122.45' },
     invalid: { subtotal: '127.50', shipping: '4.95', discount: '10.00', total: '122.46' },
-    invalidLabel: 'Add one cent'
+    tamper: { label: 'Add one cent', field: 'total', delta: '0.01' }
   },
   allocation: {
     label: 'Allocation',
@@ -23,7 +23,7 @@ export const presets = {
     },
     valid: { research: '33.33', engineering: '33.33', operations: '33.34' },
     invalid: { research: '33.33', engineering: '33.33', operations: '33.33' },
-    invalidLabel: 'Lose one hundredth'
+    tamper: { label: 'Lose one hundredth', field: 'operations', delta: '-0.01' }
   },
   carry: {
     label: 'Carry chain',
@@ -36,6 +36,6 @@ export const presets = {
     },
     valid: { balance: '999.99', deposit: '0.01', result: '1000.00' },
     invalid: { balance: '999.99', deposit: '0.01', result: '0.00' },
-    invalidLabel: 'Drop the carry'
+    tamper: { label: 'Drop the carry', field: 'result', delta: '-1000.00' }
   }
 };

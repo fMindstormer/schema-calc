@@ -25,12 +25,20 @@
     <section class="result" id="result" data-state="pending" aria-live="polite" aria-atomic="true"><div class="result-symbol" aria-hidden="true"></div><div><h2 id="status-title">Checking…</h2><p id="status-description">Preparing the generated schema.</p></div><span class="engine">Validated by Ajv</span></section>
     <details id="error-details" hidden><summary>Inspect validator errors</summary><pre id="validator-errors"></pre></details>
     <section class="artifact" aria-label="Generated schema">
-      <div class="artifact-top"><div><p class="eyebrow">THE OUTPUT</p><h2>One portable schema file.</h2><p>Standard Draft 2020-12. No custom keywords or validation hooks.</p></div><button class="download" id="download" disabled>Download .schema.json <span>↓</span></button></div>
-      <div class="metrics"><div><span class="metric-label">SCHEMA SIZE</span><strong id="schema-size">—</strong></div><div><span class="metric-label" id="node-label">DECISION NODES</span><strong id="node-count">—</strong></div><div><span class="metric-label" id="steps-label">DIGIT TESTS / RECORD</span><strong id="steps">—</strong></div><div><span class="metric-label">LAST VALIDATION</span><strong id="timing">—</strong></div></div>
+      <div class="artifact-top"><div><p class="eyebrow">THE OUTPUT</p><h2>One portable schema file.</h2><p>Standard Draft 2020-12. No custom keywords or validation hooks.</p></div><div class="downloads"><button class="download" id="download" disabled>Download .schema.json <span>↓</span></button><button class="download secondary" id="download-record" disabled><span id="download-record-label">Download record</span> <span>↓</span></button></div></div>
+      <p class="boundaries"><span class="metric-label">THIS FILE ACCEPTS</span><span id="boundaries">—</span></p>
+      <div class="metrics"><div><span class="metric-label">SCHEMA SIZE</span><strong id="schema-size">—</strong></div><div><span class="metric-label">RECORD SIZE</span><strong id="record-size">—</strong></div><div><span class="metric-label" id="node-label">DECISION NODES</span><strong id="node-count">—</strong></div><div><span class="metric-label" id="steps-label">DIGIT TESTS / RECORD</span><strong id="steps">—</strong></div><div><span class="metric-label">LAST VALIDATION</span><strong id="timing">—</strong></div></div>
+      <div class="handoff">
+        <h3>Validate this file elsewhere</h3>
+        <p>No Schema Calc, Node or clone needed: Python 3 and <code>jsonschema</code> 4.25.1 (tested on Python 3.13). Put both downloads beside <a href="./validate.py" download>validate.py</a> and run:</p>
+        <div class="command"><pre id="handoff-command"></pre><button class="quiet" id="copy-command">Copy</button></div>
+        <p class="expected">Expected output: <code id="handoff-expected">—</code></p>
+        <p class="handoff-note" id="handoff-note"></p>
+      </div>
       <details class="source"><summary>Inspect the actual generated schema <span>JSON ↗</span></summary><pre id="schema-preview"></pre></details>
       <details class="source"><summary>Inspect JSON passed to the validator <span>JSON ↗</span></summary><pre id="payload-preview"></pre></details>
-      <button class="quiet" id="download-record" disabled>Download validation JSON ↓</button>
       <p class="compile-time" id="compile-time"></p>
+      <p class="compile-time" id="timing-note"></p>
     </section>
     <section class="notes"><div><h3>How it works</h3><p>Original JSON uses digit tests and a carry graph. Compact tally JSON uses standard <code>contains</code> counts and a small recursive adder. Neither encoding needs custom validator logic.</p></div><div><h3>Deliberately bounded</h3><p>The compiler supports sums and differences of nonnegative decimal strings, constants and multiple equalities. No multiplication, comparisons or signed input amounts yet. The compact encoding changes the exported record format.</p></div></section>
     <footer><span>SCHEMA CALC · RESEARCH PROTOTYPE</span><span class="links"><a href="https://github.com/fMindstormer/schema-calc" target="_blank" rel="noreferrer">Source on GitHub ↗</a><a href="https://json-schema.org/draft/2020-12" target="_blank" rel="noreferrer">Built on the JSON Schema standard ↗</a></span></footer>

@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 const port = Number(process.env.PORT || 4173);
-const types = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'], '/app.js': ['app.js', 'text/javascript'], '/worker.js': ['worker.js', 'text/javascript'], '/style.css': ['style.css', 'text/css'] };
+const types = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'], '/app.js': ['app.js', 'text/javascript'], '/worker.js': ['worker.js', 'text/javascript'], '/style.css': ['style.css', 'text/css'], '/validate.py': ['validate.py', 'text/x-python; charset=utf-8'] };
 createServer(async (req, res) => {
   const asset = types[new URL(req.url, 'http://localhost').pathname];
   if (!asset) { res.writeHead(404); res.end('Not found'); return; }

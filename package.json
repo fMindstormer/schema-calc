@@ -31,11 +31,14 @@
     "superoptimizer:check": "node bench/superoptimizer/check.mjs && .venv/bin/python bench/superoptimizer/check.py",
     "superoptimizer:confirm": "node bench/superoptimizer/confirm.mjs && .venv/bin/python bench/superoptimizer/confirm.py",
     "demo": "node examples/validate.mjs",
-    "check:examples": "node scripts/examples.mjs --check"
+    "check:examples": "node scripts/examples.mjs --check",
+    "check:handoff": "node scripts/check-handoff.mjs",
+    "demo:record": "node scripts/demo/record.mjs"
   },
   "devDependencies": {
     "ajv": "8.20.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "playwright": "1.64.1"
   },
   "license": "MIT",
   "author": "fMindstormer",

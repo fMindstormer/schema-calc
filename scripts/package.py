@@ -13,11 +13,11 @@ TOP_LEVEL = (
     "CONTRIBUTING.md", "package.json", "package-lock.json", "requirements-test.txt",
 )
 SOURCE_DIRS = {
-    "src": {".mjs"}, "bin": {".mjs"}, "scripts": {".mjs", ".py"},
+    "src": {".mjs"}, "bin": {".mjs"}, "scripts": {".mjs", ".py", ".html"},
     "web": {".mjs", ".html", ".css"},
     "examples": {".json", ".mjs", ".py"}, "test": {".mjs", ".py"},
     "bench": {".mjs", ".py", ".json", ".md"},
-    "docs": {".md", ".svg", ".png"}, ".github": {".yml", ".yaml", ".md"},
+    "docs": {".md", ".svg", ".png", ".gif"}, ".github": {".yml", ".yaml", ".md"},
 }
 
 
