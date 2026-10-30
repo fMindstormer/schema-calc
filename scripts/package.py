@@ -18,7 +18,11 @@ SOURCE_DIRS = {
     "examples": {".json", ".mjs", ".py"}, "test": {".mjs", ".py"},
     "bench": {".mjs", ".py", ".json", ".md"},
     "docs": {".md", ".svg", ".png", ".gif"}, ".github": {".yml", ".yaml", ".md"},
+    "compat": {".mjs", ".py", ".txt", ".json", ".md", ".sh", ".go", ".mod", ".sum",
+               ".xml", ".java", ".properties", ".csproj", ".cs"},
 }
+# Dependency and build output directories inside a source directory.
+SKIPPED_PARTS = {"scratch", "__pycache__", "node_modules", "target", "bin", "obj"}
 
 
 def source_files():
@@ -33,7 +37,7 @@ def source_files():
             raise FileNotFoundError(base)
         for path in base.rglob("*"):
             relative = path.relative_to(ROOT)
-            if "scratch" in relative.parts or "__pycache__" in relative.parts:
+            if SKIPPED_PARTS.intersection(relative.parts[1:]):
                 continue
             if path.is_symlink():
                 raise ValueError(f"Refusing symlink: {relative}")

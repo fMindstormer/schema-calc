@@ -34,11 +34,13 @@ On Windows, create the environment with `py -3.13 -m venv .venv`. Replace `.venv
 
 Run `npm test` before Python checks: it generates the ignored corpora. Run the Python suites sequentially when recording elapsed times. The normal CI workflow performs correctness checks and builds the playground; it does not treat noisy hosted-runner timings as performance gates. CI setup follows GitHub's [Node.js](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs) and [Python](https://docs.github.com/en/actions/tutorials/build-and-test-code/python) guides.
 
+The [validator compatibility](compat/README.md) check is optional locally. It runs the same corpora through validators in JavaScript, Python, Go, Java and C#, and needs those toolchains: `compat/setup.sh`, then `npm run check:compat`. A missing toolchain is skipped and reported.
+
 ## Working on the compiler
 
 - State the accepted input domain, including malformed inputs. Domain-dependent regex simplifications must remain justified by the root format checks.
 - Explain the identity or invariant behind an arithmetic rewrite. Add independent oracle cases or exhaustive local transition checks where they test that claim.
-- Test the actual exported file with both stock validators. Browser preparation is an additional path, not a substitute for this check.
+- Test the actual exported file with both stock validators. Browser preparation is an additional path, not a substitute for this check. A change to emitted keywords, patterns, references or nesting depth should also rerun `npm run check:compat`, since other validators differ in regex dialect and resource handling.
 - Preserve reference closure: the output must be self-contained Draft 2020-12, without custom keywords, dynamic input callbacks, or remote dependencies.
 - Measure actual UTF-8 JSON size and validation time separately. Keep contracts, precision and record representations identical for a direct comparison; label representation changes explicitly.
 

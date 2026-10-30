@@ -11,3 +11,6 @@ test/superoptimizer-cells.json
 releases/
 .DS_Store
 *.log
+compat/java/target/
+compat/dotnet/bin/
+compat/dotnet/obj/

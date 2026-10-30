@@ -33,6 +33,7 @@
     "demo": "node examples/validate.mjs",
     "check:examples": "node scripts/examples.mjs --check",
     "check:handoff": "node scripts/check-handoff.mjs",
+    "check:compat": "node scripts/compat.mjs",
     "demo:record": "node scripts/demo/record.mjs"
   },
   "devDependencies": {

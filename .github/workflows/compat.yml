@@ -1,0 +1,56 @@
+# Check the generated schemas in independent validators across five languages.
+# Fails on any wrong answer, or if a runner cannot be installed. See compat/README.md.
+name: Validator compatibility
+
+on:
+  push:
+    branches: [main]
+    paths: [src/**, compat/**, scripts/compat.mjs, examples/*.json, test/compiler.test.mjs, .github/workflows/compat.yml]
+  pull_request:
+    paths: [src/**, compat/**, scripts/compat.mjs, examples/*.json, test/compiler.test.mjs, .github/workflows/compat.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            compat/js/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: compat/go/go.mod
+          cache-dependency-path: compat/go/go.sum
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: compat/java/pom.xml
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: npm ci
+      - name: Generate the corpora
+        run: npm test
+      - name: Install the pinned validators
+        run: compat/setup.sh
+      - name: Compare every validator with the arithmetic
+        run: npm run check:compat -- --require-all --write
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: compat-results
+          path: compat/results.json

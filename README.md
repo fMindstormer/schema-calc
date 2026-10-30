@@ -226,9 +226,11 @@ The 28 Node tests cover the compiler, both representations, browser preparation,
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 
+The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and all of them load every tally schema. Some refuse or time out on flat schemas: Go's standard regex engine lacks the lookahead they use, cfworker rejects nested embedded resources, JsonSchema.Net stops at 64 nesting levels, and jsonschema-rs and networknt time out loading the largest.
+
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests.
+Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
 
 ## Explore the project
 
@@ -240,6 +242,7 @@ Coverage includes exhaustive small additions, every pair of two-digit addends, i
 | [docs/tally.md](docs/tally.md) | Native counting, recursive carries and representation costs |
 | [docs/experiments.md](docs/experiments.md), [docs/flat-experiment.md](docs/flat-experiment.md) | Successful and rejected compression approaches |
 | [docs/superoptimizer.md](docs/superoptimizer.md) | Search grammar, exhaustive local checks and confirmation results |
+| [compat/README.md](compat/README.md) | The schemas in twelve validators across five languages |
 | [bench/README.md](bench/README.md) | Reproducing results and interpreting timings |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development and evidence required for compiler changes |
 | [docs/releasing.md](docs/releasing.md) | Preparing a source archive and a GitHub release |

@@ -1,0 +1,11 @@
+{
+  "name": "schema-calc-compat-js",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cfworker/json-schema": "4.1.1",
+    "@exodus/schemasafe": "1.3.0",
+    "@hyperjump/json-schema": "1.18.0",
+    "ajv": "8.20.0"
+  }
+}

@@ -15,8 +15,11 @@ npm run demo
 .venv/bin/python examples/validate.py
 npm run build
 npm run check:handoff
+compat/setup.sh && npm run check:compat -- --require-all
 python3 scripts/package.py
 ```
+
+The compatibility check needs Go, a JDK with Maven and the .NET SDK as well. If the compiler's output changed, run it with `--write` and commit the updated [table](../compat/README.md).
 
 The last command uses only Python's standard library. It writes `releases/schema-calc-0.1.0.zip` and a SHA-256 sidecar. The archive contains one versioned root folder and an internal `MANIFEST.sha256` covering every packaged file. It checks local Markdown file links, parses packaged JSON, uses an explicit source allowlist, rejects symlinks, and omits dependency directories, generated corpora, scratch workloads, browser bundles and release archives. Fixed timestamps and file order make the archive reproducible on the same Python/zlib toolchain. This is source packaging, not a substitute for the checks above.
 
@@ -24,9 +27,10 @@ Extract it into an empty directory and run `npm ci`, `npm run demo`, `npm test`,
 
 ## GitHub
 
-The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/schema-calc). Two workflows run there:
+The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/schema-calc). Three workflows run there:
 
 - **Verify schemas** (`.github/workflows/ci.yml`) runs the Node and Python suites, the examples, the build and the browser handoff check on every push and pull request, with read-only permissions.
+- **Validator compatibility** (`.github/workflows/compat.yml`) runs every runner in [`compat/`](../compat/README.md) when the compiler, examples or harness change, and fails on any wrong answer.
 - **Pages** (`.github/workflows/pages.yml`) builds the playground from `main` and publishes `dist/` to [fmindstormer.github.io/schema-calc](https://fmindstormer.github.io/schema-calc/). It needs Settings > Pages > Source set to GitHub Actions once.
 
 To release, tag the verified commit. Attach the archive and its checksum, plus the files the README's no-clone instructions download, so they work without the repository:

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>schema-calc</groupId>
+  <artifactId>compat</artifactId>
+  <version>0.1.0</version>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <networknt.version>3.0.8</networknt.version>
+    <harrel.version>1.9.1</harrel.version>
+    <json-sKema.version>0.32.0</json-sKema.version>
+  </properties>
+  <build>
+    <!-- Records the pinned versions for the result header; not every JAR carries its own. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+  </build>
+  <dependencies>
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>${networknt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>dev.harrel</groupId>
+      <artifactId>json-schema</artifactId>
+      <version>${harrel.version}</version>
+    </dependency>
+    <!-- dev.harrel/json-schema reads JSON through Jackson 2 by default. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.22.4</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.erosb</groupId>
+      <artifactId>json-sKema</artifactId>
+      <version>${json-sKema.version}</version>
+    </dependency>
+  </dependencies>
+</project>
