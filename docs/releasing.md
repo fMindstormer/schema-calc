@@ -21,7 +21,7 @@ python3 scripts/package.py
 
 The compatibility check needs Go, a JDK with Maven and the .NET SDK as well. If the compiler's output changed, run it with `--write` and commit the updated [table](../compat/README.md).
 
-The last command uses only Python's standard library. It writes `releases/schema-calc-0.1.0.zip` and a SHA-256 sidecar. The archive contains one versioned root folder and an internal `MANIFEST.sha256` covering every packaged file. It checks local Markdown file links, parses packaged JSON, uses an explicit source allowlist, rejects symlinks, and omits dependency directories, generated corpora, scratch workloads, browser bundles and release archives. Fixed timestamps and file order make the archive reproducible on the same Python/zlib toolchain. This is source packaging, not a substitute for the checks above.
+The last command uses only Python's standard library. It writes `releases/schema-calc-<version>.zip`, named from `package.json`, and a SHA-256 sidecar. The archive contains one versioned root folder and an internal `MANIFEST.sha256` covering every packaged file. It checks local Markdown file links, parses packaged JSON, uses an explicit source allowlist, rejects symlinks, and omits dependency directories, generated corpora, scratch workloads, browser bundles and release archives. Fixed timestamps and file order make the archive reproducible on the same Python/zlib toolchain. This is source packaging, not a substitute for the checks above.
 
 Extract it into an empty directory and run `npm ci`, `npm run demo`, `npm test`, `npm run check:examples`, and `npm run build` there. Run both Python suites against the extracted files as well. Inspect the manifest before publishing. The ZIP is what gets attached to a GitHub release.
 
@@ -36,12 +36,16 @@ The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/sch
 To release, tag the verified commit. Attach the archive and its checksum, plus the files the README's no-clone instructions download, so they work without the repository:
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
-gh release create v0.1.0 releases/schema-calc-0.1.0.zip releases/schema-calc-0.1.0.zip.sha256 \
-  examples/invoice.schema.json examples/invoice.valid.json examples/invoice.invalid.json examples/validate.py
+v=$(node -p 'require("./package.json").version')
+(cd releases && cp ../examples/invoice.schema.json ../examples/invoice.valid.json ../examples/invoice.invalid.json ../examples/validate.py . \
+  && shasum -a 256 schema-calc-$v.zip invoice.schema.json invoice.valid.json invoice.invalid.json validate.py > SHA256SUMS)
+git tag v$v && git push origin v$v
+gh release create v$v --title "schema-calc v$v" --notes-file releases/notes.md \
+  releases/schema-calc-$v.zip releases/schema-calc-$v.zip.sha256 releases/SHA256SUMS \
+  releases/invoice.schema.json releases/invoice.valid.json releases/invoice.invalid.json releases/validate.py
 ```
 
-Then run the README's "Reproduce it without cloning" commands in an empty directory.
+`releases/notes.md` is the release description; the folder is ignored by Git. The README's download links name the release, so update them with the version. Then run the README's "Reproduce it without cloning" commands in an empty directory.
 
 If the playground's behaviour changed, rerecord the README demonstration with `npm run demo:record` (needs ffmpeg and ImageMagick) and look at `docs/demo.gif` before committing it.
 
