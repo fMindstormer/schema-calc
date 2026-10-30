@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { compile } from '../src/compiler.mjs';
 import { presets } from '../src/presets.mjs';
-import { schemaResources } from '../src/resources.mjs';
+import { schemaResources, MAX_DEPTH } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
 import { compileTally, encodeTally, decodeTally } from '../src/tally.mjs';
 
@@ -138,7 +138,7 @@ test('tautologies still enforce field formats', () => {
 test('malformed data cannot slip past arithmetic predicates', () => {
   // A tautology prevents arithmetic rejection from masking a faulty format check.
   const check = contract('strict domain', { ...presets.invoice.spec, constraints: ['subtotal = subtotal'] });
-  for (const value of [127.5, null, true, {}, [], '-1.00', '01.00', '1', '1.0', '1.000', '1e2', ' 1.00', '1.00 ', '1.00\n', '1.00\r\n', '1.00\u2028', '١.٠٠', '10000.00']) {
+  for (const value of [127.5, null, true, {}, [], '-1.00', '01.00', '1', '1.0', '1.000', '1e2', ' 1.00', '1.00 ', '1.00\n', '1.00\r\n', '1.00\r', '1.00\u0085', '1.00\u2028', '1.00\u2029', '١.٠٠', '10000.00']) {
     check({ ...presets.invoice.valid, subtotal: value }, false);
   }
   const missing = { ...presets.invoice.valid }; delete missing.shipping;
@@ -185,7 +185,7 @@ test('every reference resolves inside the self-contained standard schema documen
     const resources = schemaResources(schema);
     const uris = new Set(resources.map(r => r.uri));
     assert.equal(uris.size, resources.length, 'embedded resource identities are unique');
-    const keywords = new Set(['$schema', '$id', 'title', 'type', 'required', 'additionalProperties', 'properties', 'pattern', 'allOf', 'not', 'if', 'then', 'else', '$ref', '$comment']);
+    const keywords = new Set(['$schema', '$id', 'title', 'type', 'required', 'additionalProperties', 'properties', 'pattern', 'allOf', 'not', 'if', 'then', 'else', '$ref', '$comment', '$defs']);
     function walk(node, base = schema.$id) {
       if (typeof node === 'boolean') return;
       if (node.$id) base = new URL(node.$id, base).href;
@@ -195,13 +195,43 @@ test('every reference resolves inside the self-contained standard schema documen
           const uri = new URL(value, base).href;
           assert.ok(uri.startsWith(schema.$id));
           assert.ok(uris.has(uri), `unbundled reference ${uri}`);
-        } else if (key === 'properties') Object.values(value).forEach(child => walk(child, base));
+        } else if (key === 'properties' || key === '$defs') Object.values(value).forEach(child => walk(child, base));
         else if (key === 'allOf') value.forEach(child => walk(child, base));
         else if (['not', 'if', 'then', 'else'].includes(key)) walk(value, base);
       }
     }
     walk(schema);
   }
+});
+
+test('flat schemas avoid regex lookaround and stay within parser depth limits', () => {
+  // RE2 has no lookaround; System.Text.Json reads 64 levels by default, and networknt slows sharply with depth.
+  const depth = value => value && typeof value === 'object' ? 1 + Math.max(0, ...Object.values(value).map(depth)) : 0;
+  const patterns = new Set();
+  for (const { name, schema } of corpus) {
+    assert.ok(depth(schema) <= MAX_DEPTH, `${name} nests ${depth(schema)} levels`);
+    JSON.stringify(schema, (key, value) => (key === 'pattern' && patterns.add(value), value));
+  }
+  for (const pattern of patterns) assert.doesNotMatch(pattern, /\(\?[=!<]/);
+  const check = (group, schema) => {
+    const validate = new Ajv2020({ strict: true }).compile(schema);
+    for (const { data, expected } of group.cases) assert.equal(validate(data), expected, `${group.name}: ${JSON.stringify(data)}`);
+  };
+  // A small limit moves many subschemas, including unshared ones, into $defs.
+  for (const group of corpus.filter(g => depth(g.schema) > 24)) {
+    const { schema } = compile(group.spec, { maxDepth: 8 });
+    assert.ok(depth(schema) <= 8);
+    check(group, schema);
+  }
+  // The defs layout declares every resource directly in root $defs, none inside another.
+  const ids = value => JSON.stringify(value).split('"$id"').length - 1;
+  for (const group of corpus) {
+    const { schema } = compile(group.spec, { layout: 'defs' });
+    assert.equal(ids({ ...schema, $defs: {} }), 1);
+    for (const resource of Object.values(schema.$defs ?? {})) assert.equal(ids(resource), 1);
+    check(group, schema);
+  }
+  assert.throws(() => compile(presets.invoice.spec, { layout: 'nested' }), /Unknown layout/);
 });
 
 test('browser preparation avoids deep compiler recursion', () => {

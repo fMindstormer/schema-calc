@@ -14,6 +14,8 @@ const out = `${root}bench/scratch/handoff`;
 const python = process.env.PYTHON || 'python3';
 const port = 4174, url = `http://127.0.0.1:${port}/`;
 const server = spawn(process.execPath, [`${root}scripts/serve.mjs`], { env: { ...process.env, PORT: port }, stdio: ['ignore', 'pipe', 'inherit'] });
+// Stop the server however this script ends, including a failed setup or browser launch.
+process.on('exit', () => server.kill());
 await new Promise(resolve => server.stdout.once('data', resolve));
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -79,6 +81,5 @@ try {
   }
 } finally {
   await browser.close();
-  server.kill();
 }
 console.log('Handoff check passed.');

@@ -57,11 +57,19 @@ export function parseEquation(source, spec) {
   return { source, terms: [...coefficients].filter(([, c]) => c !== 0), constant };
 }
 
-// (?![\s\S]) is an absolute end assertion in both ECMAScript and Python regexes.
-// A bare $ also matches before a final newline in both engines.
+// (?![\s\S]) is an absolute end assertion in both ECMAScript and Python regexes;
+// Python's bare $ also matches before a final newline. Schemas use amountSchema.
 const END = '(?![\\s\\S])';
-export function amountPattern(integerDigits, scale) {
+export function amountPattern(integerDigits, scale, end = END) {
   const whole = integerDigits === 1 ? '[0-9]' : `(?:0|[1-9][0-9]{0,${integerDigits - 1}})`;
-  return `^${whole}${scale ? `\\.[0-9]{${scale}}` : ''}${END}`;
+  return `^${whole}${scale ? `\\.[0-9]{${scale}}` : ''}${end}`;
+}
+
+/** The same format as schema keywords that every common regex dialect reads alike.
+ * Go's RE2 has no lookahead. Python, Java and .NET let $ match before a final line
+ * terminator, so a second pattern rejects any character but digits and the point.
+ */
+export function amountSchema(integerDigits, scale) {
+  return { type: 'string', pattern: amountPattern(integerDigits, scale, '$'), not: { pattern: '[^.0-9]' } };
 }
 

@@ -9,14 +9,11 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 
-// "JsonSchema.Net-depth" raises System.Text.Json's default nesting limit of 64 through
-// FromText's documentOptions parameter: an explicit opt-in, not the default.
-if (args.Length < 2 || args[0] is not ("JsonSchema.Net" or "JsonSchema.Net-depth"))
+if (args.Length < 2 || args[0] != "JsonSchema.Net")
 {
-    Console.Error.WriteLine("usage: compat <JsonSchema.Net|JsonSchema.Net-depth> <corpus.json> [first group]");
+    Console.Error.WriteLine("usage: compat JsonSchema.Net <corpus.json> [first group]");
     return 2;
 }
-JsonDocumentOptions? documentOptions = args[0] == "JsonSchema.Net-depth" ? new JsonDocumentOptions { MaxDepth = 256 } : null;
 // The harness reads the corpus without a depth limit; the validator parses each schema
 // and record itself, with its own defaults.
 var unlimited = new JsonDocumentOptions { MaxDepth = 4096 };
@@ -39,7 +36,7 @@ for (var index = first; index < corpus.Count; index++)
     var timer = Stopwatch.StartNew();
     try
     {
-        var schema = JsonSchema.FromText(group["schema"]!.ToJsonString(), new BuildOptions { SchemaRegistry = new SchemaRegistry() }, null, documentOptions);
+        var schema = JsonSchema.FromText(group["schema"]!.ToJsonString(), new BuildOptions { SchemaRegistry = new SchemaRegistry() });
         loadSeconds = timer.Elapsed.TotalSeconds;
         Heartbeat(index, 0);
         for (var done = 0; done < cases.Count; done++)

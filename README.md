@@ -25,7 +25,7 @@ The input stays a normal flat JSON object:
 
 JSON Schema has no built-in operator for adding values from different properties. Schema Calc compiles **bounded decimal equalities into a finite carry machine**, then expresses that machine using standard conditionals, digit patterns and references. The validator becomes the execution engine.
 
-The example schema is **41,232 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
+The example schema is **41,364 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
 **[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.1.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.1.0)**: the invoice schema, both records and a standalone Python validator.
 
@@ -120,6 +120,8 @@ const { schema, stats } = compile({
 });
 ```
 
+A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 17–20% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth })` changes the 32-level nesting limit.
+
 Ajv is a development dependency for the demo, tests and playground; it is not part of the compiler or the exported schema. See the runnable [JavaScript](examples/validate.mjs) and [Python](examples/validate.py) examples for the independent-validator handoff.
 
 ### Input contract
@@ -172,17 +174,19 @@ The straightforward machine already avoids enumerating complete records, but its
 1. **Factor a decimal digit into radix 2 and radix 5.** Write `d = p + 2q`, with `p = d mod 2` and `q = floor(d/2)`. Read the parity components first and divide the balance by two; then read the quotient components and divide by five, rejecting a nonzero remainder at either stage. Together these steps implement the same decimal carry. Smaller intermediate balance ranges mean fewer distinct states. These are successive carry steps, not independent congruence tests.
 2. **Share continuations, rather than repeat subtrees.** Memoize states, group component values with the same continuation, balance their tests, collapse identical branches, and intern equivalent predicates. A reference shares the program's representation; it does not promise that a validator caches its result.
 3. **Exploit the established input domain.** Short positional regexes rely on the root's canonical format. Missing leading digits behave as zero. Complementing digit sets when needed lets predicates exclude zero and avoids explicit padding alternatives. String predicates are shared across fields.
-4. **Pay for references only when they save bytes.** Compare inlining against sharing, prune unreachable nodes, merge compatible conjunctions, and declare a remaining shared resource at its first use with a short `$id`. Later uses refer to it by a short `$ref`, removing a separate definition entry and its first reference.
+4. **Pay for references only when they save bytes.** Compare inlining against sharing, prune unreachable nodes, merge compatible conjunctions, and declare a remaining shared resource at its first use with a short `$id`. Later uses refer to it by a short `$ref`, removing a separate definition entry and its first reference. Where that embedding would nest the file deeper than 32 levels, the tallest subschemas move into `$defs` instead.
 
 The result is a standard [Compound Schema Document](https://json-schema.org/understanding-json-schema/structuring#bundling). All resources are inside the one file. Its `schema-calc.invalid` identifiers are namespaces, not network endpoints.
 
 | Example | Whole-decimal baseline | Mixed-radix graph | Packed graph: current default |
 |---|---:|---:|---:|
-| Invoice | 284,300 B | 57,050 B | **41,232 B** |
-| Allocation | 94,025 B | 21,935 B | **16,315 B** |
-| Carry chain | 129,290 B | 28,167 B | **20,510 B** |
+| Invoice | 284,300 B | 57,050 B | **41,364 B** |
+| Allocation | 94,025 B | 21,935 B | **16,447 B** |
+| Carry chain | 129,290 B | 28,167 B | **20,605 B** |
 
 These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
+
+Version 0.1.0 emitted 41,232, 16,315 and 20,510 B. The current output spends 95 to 132 bytes more on an end-of-string check without lookahead and a 32-level nesting limit, so that validators in more languages load it; see the [compatibility table](compat/README.md). Timings and sizes recorded under `bench/` and in the experiment notes were measured on the 0.1.0 files.
 
 For one equation with `D` decimal positions and `N` non-cancelled fields, a selected path needs at most `4DN` digit predicates: one binary and at most three quinary decisions per field and position. The invoice's bound is 96. This counts abstract graph predicates, not validator instructions or elapsed time.
 
@@ -217,16 +221,16 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 28 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 29 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 24,469 | 31 |
+| Original flat input | 24,472 | 31 |
 | Tally input, including malformed encodings | 24,473 | 36 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 
-The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and all of them load every tally schema. Some refuse or time out on flat schemas: Go's standard regex engine lacks the lookahead they use, cfworker rejects nested embedded resources, JsonSchema.Net stops at 64 nesting levels, jsonschema-rs runs out of memory loading the larger ones, and networknt times out loading the invoice schema.
+The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and ten of the twelve load every schema. @cfworker/json-schema refuses resources nested inside other resources, and loads everything with the `--defs` layout. jsonschema-rs runs out of memory loading the larger flat schemas in either layout.
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 

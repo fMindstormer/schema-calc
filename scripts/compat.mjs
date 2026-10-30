@@ -11,6 +11,7 @@ import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { arch, cpus, platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { compile } from '../src/compiler.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const scratch = `${root}bench/scratch/compat`;
@@ -36,7 +37,7 @@ const java = name => ({
 });
 const dotnet = name => ({ ready: existsSync(`${scratch}/dotnet/compat.dll`), command: ['dotnet', `${scratch}/dotnet/compat.dll`, name] });
 
-// Order is the table's order. `option` marks a row that changes one default.
+// Order is the table's order.
 const allRunners = [
   { id: 'ajv', ...js('ajv') },
   { id: 'hyperjump', ...js('hyperjump') },
@@ -45,13 +46,11 @@ const allRunners = [
   { id: 'jsonschema', ...py('jsonschema') },
   { id: 'jsonschema-rs', ...py('jsonschema-rs') },
   { id: 'santhosh-tekuri', ...go('santhosh-tekuri') },
-  { id: 'santhosh-tekuri-regexp2', ...go('santhosh-tekuri-regexp2'), option: 'ECMAScript regexp engine (dlclark/regexp2)' },
   { id: 'kaptinlin', ...go('kaptinlin') },
   { id: 'networknt', ...java('networknt') },
   { id: 'harrel', ...java('harrel') },
   { id: 'json-sKema', ...java('json-sKema') },
   { id: 'JsonSchema.Net', ...dotnet('JsonSchema.Net') },
-  { id: 'JsonSchema.Net-depth', ...dotnet('JsonSchema.Net-depth'), option: 'JSON nesting limit raised from 64 to 256' },
 ];
 const runners = allRunners.filter(runner => !only || only.includes(runner.id));
 
@@ -68,9 +67,14 @@ for (const name of ['invoice', 'allocation', 'carry']) {
 writeFileSync(`${scratch}/examples.json`, JSON.stringify(examples));
 const suites = [
   { id: 'flat', title: 'Flat input', path: `${root}test/corpus.json` },
+  { id: 'defs', title: 'Flat input, `$defs` layout', path: `${scratch}/defs-corpus.json` },
   { id: 'tally', title: 'Tally input', path: `${root}test/tally-corpus.json` },
   { id: 'examples', title: 'Shipped examples', path: `${scratch}/examples.json` },
 ];
+if (!existsSync(suites[0].path)) throw new Error(`${suites[0].path} is missing; run npm test first.`);
+// The same flat schemas compiled with every shared resource declared in root $defs.
+writeFileSync(suites[1].path, JSON.stringify(JSON.parse(readFileSync(suites[0].path, 'utf8'))
+  .map(group => ({ ...group, schema: compile(group.spec, { layout: 'defs' }).schema }))));
 for (const suite of suites) {
   if (!existsSync(suite.path)) throw new Error(`${suite.path} is missing; run npm test first.`);
   suite.groups = JSON.parse(readFileSync(suite.path, 'utf8')).map(({ name, cases }) => ({ name, cases: cases.length }));
@@ -178,7 +182,7 @@ await Promise.all(Array.from({ length: jobs }, async () => {
       continue;
     }
     const summary = summarize(groups);
-    const entry = done.get(runner.id) ?? { id: runner.id, ...header, option: runner.option ?? null, suites: {} };
+    const entry = done.get(runner.id) ?? { id: runner.id, ...header, suites: {} };
     delete entry.note;
     entry.suites[suite.id] = { ...summary, groups };
     done.set(runner.id, entry);
@@ -196,14 +200,14 @@ if (args.includes('--write')) {
   const merged = new Map(previous.rows.map(row => [row.id, row]));
   for (const row of rows) merged.set(row.id, { ...row, environment });
   const order = allRunners.map(runner => runner.id);
-  const all = [...merged.values()].sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
+  const all = [...merged.values()].filter(row => order.includes(row.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   writeFileSync(resultsPath, `${JSON.stringify({ suites: suites.map(({ id, title, groups }) => ({ id, title, schemas: groups.length,
     cases: groups.reduce((n, g) => n + g.cases, 0) })), rows: all }, null, 1)}\n`);
   const readmePath = `${root}compat/README.md`;
   const readme = readFileSync(readmePath, 'utf8');
   const head = `| Validator | Language | Version | ${suites.map(s => `${s.title} (${s.groups.length})`).join(' | ')} |`;
   const table = [head, `|---|---|---|${suites.map(() => '---').join('|')}|`, ...all.map(row =>
-    `| ${row.validator}${row.option ? ` *with ${row.option}*` : ''} | ${row.language} | ${row.version} | ${suites.map(s => row.suites[s.id] ? cell(row.suites[s.id]) : 'not run').join(' | ')} |`)].join('\n');
+    `| ${row.validator} | ${row.language} | ${row.version} | ${suites.map(s => row.suites[s.id] ? cell(row.suites[s.id]) : 'not run').join(' | ')} |`)].join('\n');
   writeFileSync(readmePath, readme.replace(/(<!-- results:start -->\n)[\s\S]*?(\n?<!-- results:end -->)/, `$1${table}\n<!-- results:end -->`));
   console.log(`Wrote ${resultsPath} and the table in ${readmePath}.`);
 }

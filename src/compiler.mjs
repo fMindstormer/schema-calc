@@ -1,5 +1,5 @@
-import { normalizeSpec, parseEquation, amountPattern, DRAFT } from './syntax.mjs';
-import { packResources } from './resources.mjs';
+import { normalizeSpec, parseEquation, amountSchema, DRAFT } from './syntax.mjs';
+import { packResources, MAX_DEPTH } from './resources.mjs';
 
 const RADICES = [2, 5];
 const ALL_DIGITS = (1 << 10) - 1;
@@ -25,7 +25,7 @@ function pattern(position, mask, scale) {
   return `${digitClass(mask)}${suffix}$`;
 }
 
-export function compile(input) {
+export function compile(input, { maxDepth = MAX_DEPTH, layout = 'embedded' } = {}) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
   const equations = spec.constraints.map(source => parseEquation(source, spec));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
@@ -199,15 +199,13 @@ export function compile(input) {
     $schema: DRAFT,
     title: spec.title,
     type: 'object', required: spec.fields, additionalProperties: false,
-    properties: Object.fromEntries(spec.fields.map(f => [f, {
-      type: 'string', pattern: amountPattern(spec.integerDigits, spec.scale)
-    }])),
+    properties: Object.fromEntries(spec.fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
     allOf: roots.map(emit),
     $defs: Object.fromEntries([...definitions]
       .filter(([key]) => live.has(key) && !inline.has(key))
       .map(([key, node]) => [key, emit(node)]))
   };
-  const { schema, resources } = packResources(graph);
+  const { schema, resources } = packResources(graph, { maxDepth, layout });
   const decisionIds = new Set(interned.values());
   const testsPerDigit = RADICES.reduce((n, radix) => n + Math.ceil(Math.log2(radix)), 0);
   return { schema, stats: {
@@ -220,4 +218,4 @@ export function compile(input) {
   } };
 }
 
-export { normalizeSpec, parseEquation, amountPattern, DRAFT } from './syntax.mjs';
+export { normalizeSpec, parseEquation, amountPattern, amountSchema, DRAFT } from './syntax.mjs';

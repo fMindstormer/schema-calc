@@ -17,12 +17,14 @@ if (mode === '--encode-tally' || mode === '--decode-tally') {
   } catch (error) { console.error(`schema-calc: ${error.message}`); process.exitCode = 1; }
 } else {
 if (!input || extra.length || input === '--help') {
-  console.error('Usage: node bin/schema-calc.mjs [--tally] contract.json [output.schema.json]\n       node bin/schema-calc.mjs --encode-tally|--decode-tally contract.json record.json [output.json]');
+  console.error('Usage: node bin/schema-calc.mjs [--tally|--defs] contract.json [output.schema.json]\n       node bin/schema-calc.mjs --encode-tally|--decode-tally contract.json record.json [output.json]');
   process.exitCode = input === '--help' ? 0 : 1;
 } else {
   try {
-    if (!['flat', '--tally'].includes(mode)) throw new Error(`Unknown option: ${mode}`);
-    const { schema, stats } = (mode === '--tally' ? compileTally : compile)(JSON.parse(await readFile(input, 'utf8')));
+    if (!['flat', '--tally', '--defs'].includes(mode)) throw new Error(`Unknown option: ${mode}`);
+    const spec = JSON.parse(await readFile(input, 'utf8'));
+    // --defs declares every shared resource in root $defs, for validators that reject nested resources.
+    const { schema, stats } = mode === '--tally' ? compileTally(spec) : compile(spec, { layout: mode === '--defs' ? 'defs' : 'embedded' });
     const json = JSON.stringify(schema) + '\n';
     if (output) await writeFile(output, json); else process.stdout.write(json);
     console.error(`${stats.bytes.toLocaleString()} bytes; ${stats.definitions} definitions; at most ${stats.maxCountTests ?? stats.maxDigitTests} ${mode === '--tally' ? 'count' : 'digit'} tests per record.`);

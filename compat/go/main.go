@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dlclark/regexp2"
 	kaptinlin "github.com/kaptinlin/jsonschema"
 	santhosh "github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -43,60 +42,35 @@ type checker func(data []byte) (bool, error)
 
 type validator struct {
 	module  string
-	note    string
 	prepare func(schema []byte, index int) (checker, error)
 }
 
-func santhoshPrepare(configure func(*santhosh.Compiler)) func([]byte, int) (checker, error) {
-	return func(schema []byte, index int) (checker, error) {
-		doc, err := santhosh.UnmarshalJSON(bytes.NewReader(schema))
-		if err != nil {
-			return nil, err
-		}
-		url := fmt.Sprintf("https://schema-calc.invalid/compat/%d.json", index)
-		c := santhosh.NewCompiler()
-		configure(c)
-		if err := c.AddResource(url, doc); err != nil {
-			return nil, err
-		}
-		sch, err := c.Compile(url)
-		if err != nil {
-			return nil, err
-		}
-		return func(data []byte) (bool, error) {
-			inst, err := santhosh.UnmarshalJSON(bytes.NewReader(data))
-			if err != nil {
-				return false, err
-			}
-			return sch.Validate(inst) == nil, nil
-		}, nil
-	}
-}
-
-// regexp2Engine is the ECMAScript regexp engine from the santhosh-tekuri documentation
-// (example_regexp_test.go): an explicit opt-in, not the default.
-func regexp2Engine(s string) (santhosh.Regexp, error) {
-	re, err := regexp2.Compile(s, regexp2.ECMAScript)
+func santhoshPrepare(schema []byte, index int) (checker, error) {
+	doc, err := santhosh.UnmarshalJSON(bytes.NewReader(schema))
 	if err != nil {
 		return nil, err
 	}
-	return regexp2Regexp{re}, nil
+	url := fmt.Sprintf("https://schema-calc.invalid/compat/%d.json", index)
+	c := santhosh.NewCompiler()
+	if err := c.AddResource(url, doc); err != nil {
+		return nil, err
+	}
+	sch, err := c.Compile(url)
+	if err != nil {
+		return nil, err
+	}
+	return func(data []byte) (bool, error) {
+		inst, err := santhosh.UnmarshalJSON(bytes.NewReader(data))
+		if err != nil {
+			return false, err
+		}
+		return sch.Validate(inst) == nil, nil
+	}, nil
 }
-
-type regexp2Regexp struct{ re *regexp2.Regexp }
-
-func (r regexp2Regexp) MatchString(s string) bool {
-	matched, err := r.re.MatchString(s)
-	return err == nil && matched
-}
-
-func (r regexp2Regexp) String() string { return r.re.String() }
 
 var validators = map[string]validator{
-	"santhosh-tekuri": {"github.com/santhosh-tekuri/jsonschema/v6", "", santhoshPrepare(func(*santhosh.Compiler) {})},
-	"santhosh-tekuri-regexp2": {"github.com/santhosh-tekuri/jsonschema/v6", "with the documented ECMAScript regexp engine (github.com/dlclark/regexp2), not the default",
-		santhoshPrepare(func(c *santhosh.Compiler) { c.UseRegexpEngine(regexp2Engine) })},
-	"kaptinlin": {"github.com/kaptinlin/jsonschema", "", func(schema []byte, index int) (checker, error) {
+	"santhosh-tekuri": {"github.com/santhosh-tekuri/jsonschema/v6", santhoshPrepare},
+	"kaptinlin": {"github.com/kaptinlin/jsonschema", func(schema []byte, index int) (checker, error) {
 		sch, err := kaptinlin.NewCompiler().Compile(schema, fmt.Sprintf("https://schema-calc.invalid/compat/%d.json", index))
 		if err != nil {
 			return nil, err
@@ -140,7 +114,7 @@ func main() {
 		ok = err == nil
 	}
 	if !ok {
-		fmt.Fprintln(os.Stderr, "usage: compat-go <santhosh-tekuri|santhosh-tekuri-regexp2|kaptinlin> <corpus.json> [first group]")
+		fmt.Fprintln(os.Stderr, "usage: compat-go <santhosh-tekuri|kaptinlin> <corpus.json> [first group]")
 		os.Exit(2)
 	}
 	raw, err := os.ReadFile(os.Args[2])
@@ -153,7 +127,7 @@ func main() {
 	}
 	emit(map[string]any{
 		"validator": v.module, "version": moduleVersion(v.module), "language": "Go",
-		"runtime": runtime.Version(), "note": v.note,
+		"runtime": runtime.Version(),
 	})
 	for i := first; i < len(corpus); i++ {
 		g := corpus[i]
