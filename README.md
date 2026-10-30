@@ -226,7 +226,7 @@ The 28 Node tests cover the compiler, both representations, browser preparation,
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 
-The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and all of them load every tally schema. Some refuse or time out on flat schemas: Go's standard regex engine lacks the lookahead they use, cfworker rejects nested embedded resources, JsonSchema.Net stops at 64 nesting levels, and jsonschema-rs and networknt time out loading the largest.
+The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and all of them load every tally schema. Some refuse or time out on flat schemas: Go's standard regex engine lacks the lookahead they use, cfworker rejects nested embedded resources, JsonSchema.Net stops at 64 nesting levels, jsonschema-rs runs out of memory loading the larger ones, and networknt times out loading the invoice schema.
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 

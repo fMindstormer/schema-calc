@@ -7,7 +7,7 @@
 // --write merges the rows that ran into compat/results.json and regenerates the
 // table in compat/README.md. The exit status is 1 if any validator gives a wrong
 // answer or a runner fails to start, or if --require-all is set and one is not installed.
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { arch, cpus, platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,8 @@ const scratch = `${root}bench/scratch/compat`;
 // if it reports nothing for `limit` seconds, or spends `cap` seconds on one schema.
 const limit = Number(process.env.COMPAT_TIMEOUT ?? 120);
 const cap = Number(process.env.COMPAT_SCHEMA_CAP ?? 900);
+// Resident memory is sampled twice a second; a runner above `memoryMB` is stopped.
+const memoryMB = Number(process.env.COMPAT_MEMORY_MB ?? 2048);
 const jobs = Number(process.env.COMPAT_JOBS ?? Math.max(1, Math.min(4, cpus().length >> 1)));
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : null;
@@ -29,12 +31,13 @@ const py = name => ({ ready: existsSync(python), command: [python, '-I', `${root
 const go = name => ({ ready: existsSync(`${scratch}/compat-go`), command: [`${scratch}/compat-go`, name] });
 const java = name => ({
   ready: existsSync(`${scratch}/java-classpath.txt`),
-  command: () => [process.env.COMPAT_JAVA ?? 'java', '-Xss16m', '-cp', javaClasspath(), 'Run', name],
+  // A fixed heap keeps the JVM's lazy collection from reading as validator memory use.
+  command: () => [process.env.COMPAT_JAVA ?? 'java', '-Xmx1g', '-Xss16m', '-cp', javaClasspath(), 'Run', name],
 });
 const dotnet = name => ({ ready: existsSync(`${scratch}/dotnet/compat.dll`), command: ['dotnet', `${scratch}/dotnet/compat.dll`, name] });
 
 // Order is the table's order. `option` marks a row that changes one default.
-const runners = [
+const allRunners = [
   { id: 'ajv', ...js('ajv') },
   { id: 'hyperjump', ...js('hyperjump') },
   { id: 'schemasafe', ...js('schemasafe') },
@@ -49,7 +52,8 @@ const runners = [
   { id: 'json-sKema', ...java('json-sKema') },
   { id: 'JsonSchema.Net', ...dotnet('JsonSchema.Net') },
   { id: 'JsonSchema.Net-depth', ...dotnet('JsonSchema.Net-depth'), option: 'JSON nesting limit raised from 64 to 256' },
-].filter(runner => !only || only.includes(runner.id));
+];
+const runners = allRunners.filter(runner => !only || only.includes(runner.id));
 
 // The six schemas a visitor downloads, with the records shipped beside them.
 mkdirSync(scratch, { recursive: true });
@@ -72,8 +76,11 @@ for (const suite of suites) {
   suite.groups = JSON.parse(readFileSync(suite.path, 'utf8')).map(({ name, cases }) => ({ name, cases: cases.length }));
 }
 
-// Runs one validator over one corpus. A timed-out runner is killed and the group is
-// recorded as timed out while loading or validating; a crash is recorded against the
+const residentMB = pid => new Promise(resolve => execFile('ps', ['-o', 'rss=', '-p', String(pid)],
+  (error, stdout) => resolve(error ? 0 : Number(stdout.trim()) / 1024)));
+
+// Runs one validator over one corpus. A runner that stalls or exceeds the memory limit
+// is killed and the group recorded with the reason; a crash is recorded against the
 // group in progress. Either way the runner restarts at the next group.
 async function runSuite(runner, suite) {
   const groups = new Array(suite.groups.length).fill(null);
@@ -81,8 +88,12 @@ async function runSuite(runner, suite) {
   while (first < groups.length) {
     const [command, ...rest] = typeof runner.command === 'function' ? runner.command() : runner.command;
     const child = spawn(command, [...rest, suite.path, String(first)], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let pending = '', stderr = '', timedOut = null, loaded = false, timer, capTimer;
-    const kill = reason => { timedOut = reason; child.kill('SIGKILL'); };
+    let pending = '', stderr = '', timedOut = null, loaded = false, timer, capTimer, peak = 0;
+    const kill = reason => { timedOut ??= reason; child.kill('SIGKILL'); };
+    const sampler = setInterval(async () => {
+      peak = Math.max(peak, await residentMB(child.pid));
+      if (peak > memoryMB) kill('memory');
+    }, 500);
     const arm = () => { clearTimeout(timer); timer = setTimeout(() => kill(loaded ? 'validating' : 'loading'), limit * 1000); };
     const startGroup = () => { loaded = false; clearTimeout(capTimer); capTimer = setTimeout(() => kill('total'), cap * 1000); };
     arm();
@@ -94,7 +105,11 @@ async function runSuite(runner, suite) {
       for (const line of lines.filter(Boolean)) {
         const value = JSON.parse(line);
         if ('heartbeat' in value) loaded = true;
-        else if ('index' in value) { groups[value.index] = value; startGroup(); }
+        else if ('index' in value) {
+          groups[value.index] = { ...value, peakMB: Math.round(peak) };
+          peak = 0;
+          startGroup();
+        }
         else header ??= value;
         arm();
       }
@@ -102,12 +117,13 @@ async function runSuite(runner, suite) {
     const code = await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', resolve); });
     clearTimeout(timer);
     clearTimeout(capTimer);
+    clearInterval(sampler);
     if (!header) return { header: null, startError: `exit ${code}: ${stderr.trim().slice(-500)}`, groups: [] };
     const missing = groups.findIndex((group, index) => index >= first && !group);
     if (missing < 0) break;
     groups[missing] = { index: missing, ...suite.groups[missing], falseAccepts: 0, falseRejects: 0, caseErrors: 0,
       error: timedOut ? null : `exited with ${code ?? 'a signal'}: ${stderr.trim().slice(-300)}`,
-      timedOut, seconds: null };
+      timedOut, peakMB: Math.round(peak), seconds: null };
     first = missing + 1;
   }
   return { header, groups };
@@ -121,8 +137,10 @@ function summarize(groups) {
     schemas: groups.length,
     loaded: loaded.length,
     refused: groups.filter(group => group.error).length,
-    timedOut: groups.filter(group => group.timedOut).length,
+    timedOut: groups.filter(group => group.timedOut && group.timedOut !== 'memory').length,
     timedOutWhile: [...new Set(groups.filter(group => group.timedOut).map(group => group.timedOut))],
+    overMemory: groups.filter(group => group.timedOut === 'memory').length,
+    peakMB: Math.max(0, ...groups.map(group => group.peakMB ?? 0)),
     cases: sum(groups, 'cases'),
     checked: sum(loaded, 'cases') - sum(loaded, 'caseErrors'),
     caseErrors: sum(loaded, 'caseErrors'),
@@ -138,6 +156,7 @@ function cell(s) {
   const number = n => n.toLocaleString('en-US');
   if (s.falseAccepts || s.falseRejects) return `**${number(s.falseAccepts + s.falseRejects)} wrong** (${s.falseAccepts} accepted, ${s.falseRejects} rejected)`;
   const problems = [s.refused && `refuses ${s.refused}`, s.timedOut && `times out on ${s.timedOut}`,
+    s.overMemory && `exceeds ${memoryMB / 1024} GB on ${s.overMemory}`,
     s.caseErrors && `throws on ${s.caseErrors} records`].filter(Boolean);
   if (!s.loaded) return `${problems.join(', ')} of ${s.schemas}`;
   if (!problems.length) return `all ${number(s.checked)} agree`;
@@ -173,10 +192,10 @@ if (args.includes('--write')) {
   const resultsPath = `${root}compat/results.json`;
   const previous = existsSync(resultsPath) ? JSON.parse(readFileSync(resultsPath, 'utf8')) : { rows: [] };
   const environment = { date: new Date().toISOString().slice(0, 10), platform: `${platform()}-${arch()}`,
-    stallSeconds: limit, schemaCapSeconds: cap, jobs };
+    stallSeconds: limit, schemaCapSeconds: cap, memoryMB, jobs };
   const merged = new Map(previous.rows.map(row => [row.id, row]));
   for (const row of rows) merged.set(row.id, { ...row, environment });
-  const order = runners.map(runner => runner.id);
+  const order = allRunners.map(runner => runner.id);
   const all = [...merged.values()].sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
   writeFileSync(resultsPath, `${JSON.stringify({ suites: suites.map(({ id, title, groups }) => ({ id, title, schemas: groups.length,
     cases: groups.reduce((n, g) => n + g.cases, 0) })), rows: all }, null, 1)}\n`);
