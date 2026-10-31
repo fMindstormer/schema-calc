@@ -8,7 +8,7 @@ import { presets } from '../src/presets.mjs';
 import { schemaResources, MAX_DEPTH, MAX_SUBSCHEMAS } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
 import { compileTally, encodeTally, decodeTally, MAX_TALLY_COPIES } from '../src/tally.mjs';
-import { parseEquation, normalizeSpec } from '../src/syntax.mjs';
+import { parseEquation, parseConstraint, normalizeSpec } from '../src/syntax.mjs';
 
 const corpus = [];
 const tallyCorpus = [];
@@ -172,6 +172,72 @@ test('a coefficient means repeated terms, in either order', () => {
   for (let a = 0; a < 13; a++) for (const b of [8 * a, 8 * a + 1]) if (b < 100) check({ a: String(a), b: String(b) }, b === 8 * a);
 });
 
+const compare = { '=': (x, y) => x === y, '<=': (x, y) => x <= y, '>=': (x, y) => x >= y, '<': (x, y) => x < y, '>': (x, y) => x > y };
+
+test('exhaustive one-digit inequalities', () => {
+  for (const relation of ['<=', '>=', '<', '>']) {
+    const check = contract(`exhaustive ${relation}`, { fields: ['a', 'b', 'total'], constraints: [`a + b ${relation} total`], integerDigits: 1, scale: 0 });
+    for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) for (let total = 0; total < 10; total++) {
+      check({ a: String(a), b: String(b), total: String(total) }, compare[relation](a + b, total));
+    }
+  }
+});
+
+test('signed inequalities agree with an independent BigInt oracle, one unit either side', () => {
+  // Coefficients, relations and expected values are generated independently of the source parser.
+  for (let i = 0; i < 15; i++) {
+    const relation = ['<=', '>=', '<', '>', '='][i % 5];
+    const ca = random(11) - 5 || 1, cb = random(11) - 5 || -1, constant = random(41) - 20;
+    const term = (c, name) => `${c < 0 ? '-' : '+'} ${Math.abs(c)} * ${name}`;
+    const equation = `${term(ca, 'a')} ${term(cb, 'b')} ${constant < 0 ? '-' : '+'} ${money(Math.abs(constant), 1)} ${relation} c`;
+    const check = contract(`signed inequality ${i}`, { fields: ['a', 'b', 'c'], constraints: [equation], integerDigits: 2, scale: 1 });
+    for (let j = 0; j < 60; j++) {
+      // Half the time keep |ca a| + |cb b| below 1000, so both sides can be close.
+      const bound = coefficient => j % 2 ? Math.floor(500 / Math.abs(coefficient)) : 1000;
+      const a = BigInt(random(bound(ca))), b = BigInt(random(bound(cb)));
+      const left = BigInt(ca) * a + BigInt(cb) * b + BigInt(constant);
+      // Near the boundary where possible: the exact value and one unit either side.
+      const near = left + BigInt(random(3) - 1);
+      const c = j % 3 && near >= 0n && near < 1000n ? near : BigInt(random(1000));
+      check({ a: money(a, 1), b: money(b, 1), c: money(c, 1) }, compare[relation](left, c));
+    }
+  }
+});
+
+test('inequalities at full precision, against constants and alongside equations', () => {
+  const wide = contract('inequality 10.2', { fields: ['a', 'b'], constraints: ['a <= b'], integerDigits: 10, scale: 2 });
+  for (const [a, b] of [[999999999999n, 999999999999n], [999999999999n, 999999999998n], [0n, 0n], [1n, 0n], [0n, 999999999999n], [500000000000n, 499999999999n]]) {
+    wide({ a: money(a), b: money(b) }, a <= b);
+  }
+  const bounds = contract('constant bounds', { fields: ['fee'], constraints: ['fee >= 0.50', 'fee < 100', '2 * fee <= 150.00'], integerDigits: 3, scale: 2 });
+  for (let fee = 0n; fee < 100000n; fee += 1n + BigInt(random(997))) bounds({ fee: money(fee) }, fee >= 50n && fee < 7501n);
+  for (const fee of [49n, 50n, 7500n, 7501n, 9999n, 10000n]) bounds({ fee: money(fee) }, fee >= 50n && fee <= 7500n);
+  const constants = contract('constant-only relations', { fields: ['a'], constraints: ['1 <= 2', '2 >= 2', '0 < 0.01', 'a >= 0'], integerDigits: 1, scale: 2 });
+  constants({ a: '0.00' }, true); constants({ a: '9.99' }, true);
+  const never = contract('false constant relation', { fields: ['a'], constraints: ['2 < 2'], integerDigits: 1, scale: 0 });
+  never({ a: '0' }, false);
+  const invoice = contract('invoice with a discount bound', { ...presets.invoice.spec, constraints: [...presets.invoice.spec.constraints, 'discount <= subtotal'] });
+  invoice(presets.invoice.valid, true); invoice(presets.invoice.invalid, false);
+  for (let i = 0; i < 200; i++) {
+    const subtotal = BigInt(random(1000000)), shipping = BigInt(random(10000)), discount = BigInt(random(i % 2 ? 1000000 : Number(subtotal) + 2));
+    const result = subtotal + shipping - discount;
+    const total = result >= 0n && result < 1000000n ? result : BigInt(random(1000000));
+    invoice({ subtotal: money(subtotal), shipping: money(shipping), discount: money(discount), total: money(total) }, total === result && discount <= subtotal);
+  }
+});
+
+test('inequalities normalize to a sum at most zero', () => {
+  const spec = normalizeSpec({ fields: ['a', 'b'], constraints: ['a = b'], scale: 2 });
+  const parsed = source => { const { terms, constant, relation } = parseConstraint(source, spec); return { terms, constant, relation }; };
+  assert.deepEqual(parsed('a <= b'), { terms: [['a', 1], ['b', -1]], constant: 0n, relation: '<=' });
+  assert.deepEqual(parsed('a >= b + 1'), { terms: [['a', -1], ['b', 1]], constant: 100n, relation: '<=' });
+  assert.deepEqual(parsed('a < b'), { terms: [['a', 1], ['b', -1]], constant: 1n, relation: '<=' });
+  assert.deepEqual(parsed('a > 2 * b - 0.5'), { terms: [['a', -1], ['b', 2]], constant: -49n, relation: '<=' });
+  assert.deepEqual(parsed('a = b'), { terms: [['a', 1], ['b', -1]], constant: 0n, relation: '=' });
+  // The frozen benchmark compilers read every parsed result as an equality.
+  assert.throws(() => parseEquation('a <= b', spec), /equality sign/);
+});
+
 test('tautologies still enforce field formats', () => {
   const check = contract('tautology', { fields: ['a'], constraints: ['a = a + 0'], integerDigits: 1, scale: 0 });
   check({ a: '0' }, true); check({ a: '9' }, true); check({ a: '10' }, false);
@@ -202,14 +268,16 @@ test('precision boundaries and zero fractional digits', () => {
 
 test('reject unsupported or ambiguous source syntax', () => {
   const base = { fields: ['a', 'b'], constraints: ['a = b'] };
-  for (const equation of ['a == b', 'a <= b', 'a = (b)', 'a = unknown', 'a =', '= b', 'a = 1.001', 'a = 10000', 'a = b; process.exit()', 'a + + b = 0']) {
+  for (const equation of ['a == b', 'a = (b)', 'a = unknown', 'a =', '= b', 'a = 1.001', 'a = 10000', 'a = b; process.exit()', 'a + + b = 0']) {
     assert.throws(() => compile({ ...base, constraints: [equation] }), equation);
   }
   for (const [equation, message] of [
     ['a = b * b', /Fields cannot be multiplied together/], ['a * b = 0', /Fields cannot be multiplied together/],
     ['a = 1.5 * b', /whole number from 1 to 1000; found 1\.5/], ['a = 0 * b', /found 0\./], ['a = 02 * b', /found 02\./],
     ['a = 1001 * b', /found 1001\./], ['a = 2 * 3', /Multiply a field by a whole number/], ['a = 2b', /Write 2 \* b/],
-    ['a = 2 * b * 3', /at most one coefficient/], ['a = b *', /Missing term/], ['a = * b', /found "\*"/], ['a = -2 * -b', /Multiply a field by a whole number/]
+    ['a = 2 * b * 3', /at most one coefficient/], ['a = b *', /Missing term/], ['a = * b', /found "\*"/], ['a = -2 * -b', /Multiply a field by a whole number/],
+    ['a =< b', /found "<"/], ['a => b', /found ">"/], ['a <> b', /found ">"/], ['a < = b', /found "="/],
+    ['a != b', /Use one relation/], ['a b', /Use one relation/], ['a <= b <= 1', /Unexpected token: <=/], ['a ≤ b', /Use one relation/]
   ]) assert.throws(() => compile({ ...base, constraints: [equation] }), message, equation);
   for (const bad of [{ fields: [] }, { fields: ['a', 'a'] }, { fields: ['__proto__'] }, { integerDigits: 0 }, { scale: 5 }, { integerDigits: 10, scale: 4 }, { constraints: [] }, { title: 42 }, { integerDigit: 3 }]) {
     assert.throws(() => compile({ ...base, ...bad }));

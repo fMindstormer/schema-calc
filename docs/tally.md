@@ -53,6 +53,10 @@ sⱼ = rⱼ + Σ cᵢ dᵢⱼ + kⱼ = rⱼ + Kⱼ - 9N₋
 
 If it is not divisible by ten, no higher column can repair the remainder. Otherwise `rⱼ₊₁ = sⱼ / 10` preserves the invariant. At the null terminator the schema accepts only carry `-trunc(k / 10ᴰ)`. This accounts for any constant digits beyond the field width, and makes acceptance equivalent to the original equality. Overflow and negative results cannot wrap to a valid answer.
 
+## Inequalities
+
+An inequality normalizes to `Σ cᵢ xᵢ + k ≤ 0`, as for [flat input](design.md#normalization). Every count then continues, with carry `⌈sⱼ / 10⌉`: writing `sⱼ = 10q + r` with `0 ≤ r < 10`, the higher columns add a multiple of ten, so only whether `r > 0` matters ([proof](design.md#state-transition)). The terminator accepts any carry up to `-trunc(k / 10ᴰ)`. Since the next carry grows with the count, each continuation covers one contiguous range of counts and is tested by one `minContains`/`maxContains` pair. Shape rules already bound the count, so the last range needs no test. One-digit `a + b <= total` has three carry states and 2,445 B, against two states and 1,827 B for `a + b = total`.
+
 ## Why validation stays manageable
 
 Each count uses `if`/`then`/`else`. A successful count follows exactly one next-column reference. Rejected counts do not inspect the tail. A prototype using recursive alternatives inside `anyOf` was much slower in Python because failed alternatives still traversed their tails; it was discarded.

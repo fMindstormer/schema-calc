@@ -1,9 +1,10 @@
-import { normalizeSpec, parseEquation, DRAFT } from './syntax.mjs';
+import { normalizeSpec, parseConstraint, DRAFT } from './syntax.mjs';
 import { encodeColumns, decodeColumns } from './decimal-columns.mjs';
 
 const ref = id => ({ $ref: `#/$defs/${id}` });
-const exactCount = (tags, count) => ({ type: 'array', contains: tags.length === 1 ? { const: tags[0] } : { enum: tags },
-  minContains: count, maxContains: count });
+const countIn = (tags, min, max) => ({ type: 'array', contains: tags.length === 1 ? { const: tags[0] } : { enum: tags },
+  minContains: min, maxContains: max });
+const exactCount = (tags, count) => countIn(tags, count, count);
 const digitAt = (value, position) => Number((value < 0n ? -value : value) / (10n ** BigInt(position)) % 10n);
 // A field has one tally block per unit of its largest coefficient, and the schema
 // grows roughly with the cube of that count: tens of kilobytes at 16, megabytes at 100.
@@ -11,7 +12,7 @@ export const MAX_TALLY_COPIES = 16;
 
 function layout(input) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
-  const equations = spec.constraints.map(source => parseEquation(source, spec));
+  const equations = spec.constraints.map(source => parseConstraint(source, spec));
   let next = 1;
   const fields = spec.fields.map(name => {
     const copies = Math.max(1, ...equations.map(e => Math.abs(e.terms.find(([f]) => f === name)?.[1] ?? 0)));
@@ -56,29 +57,40 @@ export function compileTally(input) {
     if (constant) selected.push(constant.tag * (constant.value < 0n ? -1 : 1));
     if (!selected.length) return true;
     const bias = 9 * selected.filter(tag => tag < 0).length, maximum = 9 * selected.length;
-    const terminal = Number(-(equation.constant / (10n ** BigInt(width))));
+    const terminal = Number(-(equation.constant / (10n ** BigInt(width)))), exact = equation.relation === '=';
     const carries = new Map();
     let maxBranches = 0;
     function carry(value) {
       if (carries.has(value)) return ref(carries.get(value));
       const id = `c${index}_${value < 0 ? `n${-value}` : value}`;
       carries.set(value, id); arithmeticStates++;
-      const counts = Array.from({ length: maximum + 1 }, (_, k) => k)
-        .filter(k => (value + k - bias) % 10 === 0)
-        .sort((a, b) => Math.abs(a - maximum / 2) - Math.abs(b - maximum / 2) || a - b);
-      maxBranches = Math.max(maxBranches, counts.length);
-      let decision = false;
+      // An equality continues only from counts that complete a multiple of ten. For
+      // S <= 0 every count continues, with ceil(sum / 10) as the next carry; that grows
+      // with the count, so each continuation is one contiguous range of counts.
+      const ranges = [];
+      for (let count = 0; count <= maximum; count++) {
+        const sum = value + count - bias;
+        if (exact && sum % 10 !== 0) continue;
+        const next = exact ? sum / 10 : Math.ceil(sum / 10);
+        if (!exact && ranges.at(-1)?.next === next) ranges.at(-1).max = count;
+        else ranges.push({ min: count, max: count, next });
+      }
+      const middle = range => Math.abs((range.min + range.max) / 2 - maximum / 2);
+      ranges.sort((a, b) => middle(a) - middle(b) || a.min - b.min);
+      // Row shapes already bound the count, so an inequality's last range needs no test.
+      let decision = exact ? false : { type: 'object', properties: { $: carry(ranges.pop().next) } };
+      maxBranches = Math.max(maxBranches, ranges.length);
       // Only the matching count follows a tail. anyOf over recursive alternatives
       // can make interpreters traverse rejected tails repeatedly or exponentially.
-      for (const count of counts.toReversed()) {
+      for (const { min, max, next } of ranges.toReversed()) {
         transitions++;
         decision = {
-          if: { type: 'object', properties: { d: exactCount(selected, count) } },
-          then: { type: 'object', properties: { $: carry((value + count - bias) / 10) } },
+          if: { type: 'object', properties: { d: countIn(selected, min, max) } },
+          then: { type: 'object', properties: { $: carry(next) } },
           else: decision
         };
       }
-      defs[id] = { if: { type: 'null' }, then: value === terminal, else: decision };
+      defs[id] = { if: { type: 'null' }, then: exact ? value === terminal : value <= terminal, else: decision };
       return ref(id);
     }
     const root = { $comment: equation.source, ...carry(0) };

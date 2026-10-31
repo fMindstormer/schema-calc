@@ -1,4 +1,4 @@
-import { normalizeSpec, parseEquation, amountSchema, DRAFT } from './syntax.mjs';
+import { normalizeSpec, parseConstraint, amountSchema, DRAFT } from './syntax.mjs';
 import { packResources, MAX_DEPTH, MAX_SUBSCHEMAS } from './resources.mjs';
 
 const RADICES = [2, 5];
@@ -27,7 +27,7 @@ function pattern(position, mask, scale) {
 
 export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, layout = 'embedded' } = {}) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
-  const equations = spec.constraints.map(source => parseEquation(source, spec));
+  const equations = spec.constraints.map(source => parseConstraint(source, spec));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
   let count = 0, states = 0;
   const ref = id => typeof id === 'boolean' ? id : { $ref: `#/$defs/${id}` };
@@ -96,13 +96,16 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     }
     return tree([...groups]);
   }
-  const roots = equations.map(({ source, terms, constant }) => {
-    const memo = new Map();
+  const roots = equations.map(({ source, terms, constant, relation }) => {
+    const memo = new Map(), exact = relation === '=';
     const digits = (constant < 0n ? -constant : constant).toString()
       .padStart(width, '0').split('').reverse()
       .map(d => Number(d) * (constant < 0n ? -1 : 1));
     function build(position, stage, operand, balance) {
-      if (position === width) return BigInt(balance) + constant / (10n ** BigInt(width)) === 0n;
+      if (position === width) {
+        const final = BigInt(balance) + constant / (10n ** BigInt(width));
+        return exact ? final === 0n : final <= 0n;
+      }
       if (stage === 0 && operand === 0) balance += digits[position] ?? 0;
       const key = `${position}:${stage}:${operand}:${balance}`;
       if (memo.has(key)) return memo.get(key);
@@ -112,9 +115,14 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       // by 5 is exactly the original decimal-column divisibility test.
       const radix = RADICES[stage];
       if (operand === terms.length) {
-        if (balance % radix !== 0) result = false;
-        else if (stage === RADICES.length - 1) result = build(position + 1, 0, 0, balance / radix);
-        else result = build(position, stage + 1, 0, balance / radix);
+        // The rest of the sum is a multiple of radix. An equality needs this stage to
+        // divide exactly. For S <= 0, write balance = radix q + r with 0 <= r < radix:
+        // r only matters through r > 0, so carry ceil(balance / radix).
+        if (exact && balance % radix !== 0) result = false;
+        else {
+          const carry = exact ? balance / radix : Math.ceil(balance / radix);
+          result = stage === RADICES.length - 1 ? build(position + 1, 0, 0, carry) : build(position, stage + 1, 0, carry);
+        }
       } else {
         const [field, coefficient] = terms[operand];
         const children = Array.from({ length: radix }, (_, d) =>
@@ -218,4 +226,4 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   } };
 }
 
-export { normalizeSpec, parseEquation, amountPattern, amountSchema, DRAFT } from './syntax.mjs';
+export { normalizeSpec, parseEquation, parseConstraint, amountPattern, amountSchema, DRAFT } from './syntax.mjs';

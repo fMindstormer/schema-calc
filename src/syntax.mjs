@@ -33,12 +33,17 @@ function coefficient(token) {
   return Number(token);
 }
 
-/** Parse sums/differences of fields, each optionally multiplied by a whole number,
- * without eval. Constants are converted exactly to minor units.
+const RELATIONS = new Set(['=', '<=', '>=', '<', '>']);
+
+/** Parse a relation between sums/differences of fields, each optionally multiplied
+ * by a whole number, without eval. Constants are converted exactly to minor units.
+ * The result means Σ terms + constant = 0, or <= 0 for any inequality: >= and >
+ * negate both sides, and since values are whole minor units, a strict comparison
+ * adds one unit (S < 0 exactly when S + 1 <= 0).
  */
-export function parseEquation(source, spec) {
+export function parseConstraint(source, spec) {
   if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
-  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|[+=*-]|\S/g) ?? [];
+  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [];
   let cursor = 0, termCount = 0, constant = 0n;
   const coefficients = new Map(spec.fields.map(f => [f, 0]));
   function expression(side) {
@@ -73,10 +78,23 @@ export function parseEquation(source, spec) {
     }
   }
   expression(1);
-  if (tokens[cursor++] !== '=') throw new Error('Use one equality sign (=) between sums or differences.');
+  const relation = tokens[cursor++];
+  if (!RELATIONS.has(relation)) throw new Error('Use one relation (=, <=, >=, < or >) between sums or differences.');
   expression(-1);
   if (cursor !== tokens.length) throw new Error(`Unexpected token: ${tokens[cursor]}`);
-  return { source, terms: [...coefficients].filter(([, c]) => c !== 0), constant };
+  const sign = relation.startsWith('>') ? -1 : 1;
+  return {
+    source, relation: relation === '=' ? '=' : '<=',
+    terms: [...coefficients].filter(([, c]) => c !== 0).map(([field, c]) => [field, sign * c]),
+    constant: BigInt(sign) * constant + (relation === '<' || relation === '>' ? 1n : 0n)
+  };
+}
+
+/** Equations only. The frozen benchmark compilers read every result as an equality. */
+export function parseEquation(source, spec) {
+  const parsed = parseConstraint(source, spec);
+  if (parsed.relation !== '=') throw new Error('Use one equality sign (=) between sums or differences.');
+  return parsed;
 }
 
 // (?![\s\S]) is an absolute end assertion in both ECMAScript and Python regexes;

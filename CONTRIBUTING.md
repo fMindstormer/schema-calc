@@ -52,4 +52,4 @@ After changing the generator, run `npm run examples` and inspect changes to the 
 
 Include the smallest source contract, the exact input JSON, expected and observed results, and the validator/version used. For a performance report, include accepted and rejected workloads, preparation separately from warm validation, and the relevant schema size. Avoid submitting private records; a minimal synthetic example is usually more useful.
 
-Useful research directions include variable ordering, better byte-cost models, per-field bounds and inequalities. Each changes either the compilation search or the proof obligations; proposals should explain both the intended user benefit and the validation strategy.
+Useful research directions include variable ordering, better byte-cost models, per-field bounds and multiplication by decimal constants. Each changes either the compilation search or the proof obligations; proposals should explain both the intended user benefit and the validation strategy.

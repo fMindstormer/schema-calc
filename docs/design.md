@@ -14,6 +14,8 @@ Every internal digit predicate tests a set that excludes zero; if necessary the 
 
 Move the right side of the equality to the left. A term may multiply a field by a whole number from 1 to 1,000, written `3 * a` or `a * 3`. Combine each field's terms into one signed integer coefficient; remove zero coefficients. Parse decimal constants using BigInt and scale them into minor units. Individual constants must fit the declared precision, but their combined signed sum may exceed one field's width.
 
+A constraint relates its two sides by `=`, `<=`, `>=`, `<` or `>`. Every inequality normalizes to `S ≤ 0`, where `S = Σ cᵢxᵢ + C`. For `≥` and `>`, negate every coefficient and the constant. Fields and constants are whole numbers of minor units, so `S < 0` exactly when `S + 1 ≤ 0`: a strict comparison adds one unit to `C`.
+
 No record's numeric value is evaluated by the compiler: only the contract is input to compilation. Numeric operations used during compilation concern finite states, digit values and constants known before any record exists.
 
 ## State transition
@@ -26,6 +28,8 @@ sⱼ = rⱼ + Σᵢ cᵢ dᵢⱼ + kⱼ
 
 If `sⱼ` is not divisible by 10, the branch rejects. Otherwise the next state has `rⱼ₊₁ = sⱼ / 10`. Start with `r₀ = 0`. After `D` positions, accept exactly when `rᴅ + trunc(constant / 10ᴅ) = 0`. The final constant term handles sums of constants larger than the declared field width.
 
+For `S ≤ 0`, no column rejects. Let `Tⱼ` be the incoming carry plus the part of the sum not yet read: `Tⱼ = rⱼ + Σₘ≥ⱼ 10ᵐ⁻ʲ (Σᵢ cᵢdᵢₘ + kₘ) + 10ᴅ⁻ʲ · trunc(constant / 10ᴅ)`, so `T₀ = S`. Then `Tⱼ = sⱼ + 10U`, where `U` is the same sum from column `j + 1` without a carry. Write `sⱼ = 10q + r` with `0 ≤ r < 10`. `Tⱼ ≤ 0` exactly when `q + U ≤ −r/10`. Since `q + U` is an integer and `−r/10` lies in `(−1, 0]`, that holds exactly when `q + [r > 0] + U ≤ 0`, which is `Tⱼ₊₁ ≤ 0` with carry `rⱼ₊₁ = ⌈sⱼ / 10⌉`. After `D` positions the machine accepts exactly when `rᴅ + trunc(constant / 10ᴅ) ≤ 0`. The argument holds for any radix, so the mixed-radix stages below carry `⌈u / 2⌉` and `⌈v / 5⌉` instead of rejecting a remainder. The ceiling adds at most one, so carries stay bounded as for equalities.
+
 ## Smaller states through mixed radix
 
 The optimized generator uses `dᵢⱼ = pᵢⱼ + 2qᵢⱼ`, where `pᵢⱼ = dᵢⱼ mod 2` and `qᵢⱼ = floor(dᵢⱼ / 2)`. Thus:
@@ -36,7 +40,7 @@ v = u / 2 + Σᵢ cᵢ qᵢⱼ
 sⱼ = 2v
 ```
 
-The parity stage rejects odd `u`. For even `u`, the quotient stage rejects `v` not divisible by five. If both succeed, the next carry is `v / 5 = sⱼ / 10`. This is equivalent to the original transition for positive and negative balances. It uses a radix-2 stage followed by radix-5; it is not two independent congruence tests on the original digit.
+The parity stage rejects odd `u`. For even `u`, the quotient stage rejects `v` not divisible by five. If both succeed, the next carry is `v / 5 = sⱼ / 10`. This is equivalent to the original transition for positive and negative balances. It uses a radix-2 stage followed by radix-5; it is not two independent congruence tests on the original digit. For an inequality neither stage rejects: `v` starts from `⌈u / 2⌉`, and the next carry is `⌈v / 5⌉`. That is the [state-transition](#state-transition) argument applied with radix 2, then radix 5.
 
 The generator memoizes `(position, stage, operand, balance)` states. Parity branches have two values; quotient branches have five. The constant's signed digit is added once, at the start of the parity stage. Each component contributes its compile-time coefficient to the balance. A digit-set regex reads the appropriate component from the original decimal string; no transformed fields or extra input data are needed.
 
@@ -71,6 +75,8 @@ At the next position, `Pⱼ₊₁ = Pⱼ + 10ʲ (Σᵢ cᵢ dᵢⱼ + kⱼ) = 10
 
 At `j=D`, every field is exhausted. Only the high digits of the combined constant remain. The compiler's final condition is therefore equivalent to the complete integer equality. Scaling both sides by the same power of ten preserves the decimal equality.
 
+For an inequality the invariant is that `S ≤ 0` exactly when `Tⱼ ≤ 0`, defined under [State transition](#state-transition). It holds at `j = 0`, where `T₀ = S`, and each ceiling carry preserves it, so the final condition is equivalent to the complete integer inequality.
+
 This argument includes negative carries and negative intermediate totals. In particular, a negative result does not silently wrap to a positive value, and an overflow beyond the input width does not wrap to zero.
 
 ## Resource behavior
@@ -85,8 +91,8 @@ For browser preparation, a separate in-memory copy is unbundled: embedded declar
 
 ## Current boundaries
 
-The artifact checks equality. It does not calculate a missing total, modify input data, or infer a value. Negative input strings, inequalities, products of fields, non-integer coefficients, division and arrays are outside the current source grammar.
+The artifact checks equalities and inequalities. It does not calculate a missing total, modify input data, or infer a value. Negative input strings, `!=`, chained comparisons, products of fields, non-integer coefficients, division and arrays are outside the current source grammar.
 
-The source parser accepts only an explicit grammar of sums and differences of fields, whole-number multiples of fields and decimal constants, and never executes source text. Unsupported operators and unknown options are rejected. The generated file is self-contained: every reference resolves to an embedded resource and no network retrieval is needed.
+The source parser accepts only an explicit grammar of sums and differences of fields, whole-number multiples of fields and decimal constants, related by one of `=`, `<=`, `>=`, `<` and `>`, and never executes source text. Unsupported operators and unknown options are rejected. The generated file is self-contained: every reference resolves to an embedded resource and no network retrieval is needed.
 
-Potential follow-up work should preserve these properties: better variable ordering, per-equation failure messages, inequalities, per-field bounds, and multiplication by decimal constants with rounding, with explicit size/runtime measurements. The frozen whole-digit compiler and reproducible benchmark provide a baseline for comparing changes without quietly narrowing the domain.
+Potential follow-up work should preserve these properties: better variable ordering, per-equation failure messages, per-field bounds, and multiplication by decimal constants with rounding, with explicit size/runtime measurements. The frozen whole-digit compiler and reproducible benchmark provide a baseline for comparing changes without quietly narrowing the domain.

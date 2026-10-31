@@ -23,7 +23,7 @@ The input stays a normal flat JSON object:
 {"subtotal":"127.50","shipping":"4.95","discount":"10.00","total":"122.45"}
 ```
 
-JSON Schema has no built-in operator for adding values from different properties. Schema Calc compiles **bounded decimal equalities into a finite carry machine**, then expresses that machine using standard conditionals, digit patterns and references. The validator becomes the execution engine.
+JSON Schema has no built-in operator for adding values from different properties. Schema Calc compiles **bounded decimal equations and inequalities into a finite carry machine**, then expresses that machine using standard conditionals, digit patterns and references. The validator becomes the execution engine.
 
 The example schema is **41,364 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
@@ -128,9 +128,10 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 
 | Supported | Boundary |
 |---|---|
-| Field names, decimal constants, `+`, `-`, `=` | Equalities only; no division, parentheses or comparisons |
+| Field names, decimal constants, `+`, `-` | No division or parentheses |
+| `=`, `<=`, `>=`, `<`, `>` | One relation per constraint; no chains such as `a <= b <= c`, and no `!=` |
 | Whole-number coefficients: `3 * a` or `a * 3` | From 1 to 1,000; fields cannot be multiplied together |
-| Repeated terms, unary signs, simultaneous equations | Up to 8 fields, 8 equations and 16 source terms per equation |
+| Repeated terms, unary signs, several constraints at once | Up to 8 fields, 8 constraints and 16 source terms per constraint |
 | Exact, nonnegative decimal **strings** | No JSON numbers, signed input strings, exponents or leading zeroes |
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
@@ -151,6 +152,8 @@ s divisible by 10      → continue with carry s / 10
 ```
 
 For the invoice above, the least significant column of `subtotal + shipping - discount - total` is `0 + 5 - 0 - 5 = 0`. Changing the total's last digit to 6 makes it −1. No higher decimal column can repair that remainder.
+
+An inequality normalizes to `Σ cᵢxᵢ + C ≤ 0`: `≥` and `>` negate both sides, and since every value is a whole number of minor units, `<` adds one unit to `C`. A remainder no longer rejects. Write `s = 10q + r` with `0 ≤ r < 10`. Every higher column contributes a multiple of 10, so only whether `r > 0` matters, and the machine continues with carry `⌈s / 10⌉`. After the last column it accepts when the carry, plus the constant's part above the field width, is at most zero.
 
 The compiler precomputes every reachable transition. A compiled state records `(position, radix stage, next field, signed balance)`. Its target language is a **shared, acyclic decision graph**:
 
@@ -222,12 +225,12 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 32 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 36 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 25,778 | 40 |
-| Tally input, including malformed encodings | 25,299 | 42 |
+| Original flat input | 31,101 | 64 |
+| Tally input, including malformed encodings | 30,622 | 66 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 
@@ -235,7 +238,7 @@ The same flat, tally and example suites also run through ten more validators in 
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
+Coverage includes exhaustive small additions and comparisons, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
 
 ## Explore the project
 
