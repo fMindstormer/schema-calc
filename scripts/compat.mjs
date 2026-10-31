@@ -57,7 +57,7 @@ const runners = allRunners.filter(runner => !only || only.includes(runner.id));
 // The six schemas a visitor downloads, with the records shipped beside them.
 mkdirSync(scratch, { recursive: true });
 const examples = [];
-for (const name of ['invoice', 'allocation', 'carry']) {
+for (const name of ['invoice', 'allocation', 'carry', 'split']) {
   for (const tally of [false, true]) {
     const file = suffix => JSON.parse(readFileSync(`${root}examples/${name}${tally ? '.tally' : ''}.${suffix}.json`, 'utf8'));
     examples.push({ name: `${name}${tally ? ' (tally)' : ''}`, schema: file('schema'), cases: [

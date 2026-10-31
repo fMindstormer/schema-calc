@@ -1,6 +1,6 @@
 # Arithmetic by counting, with a recursive carry automaton
 
-The optional tally encoding replaces positional digit regexes with native JSON Schema cardinality checks. The invoice schema is **3,569 bytes**, allocation **3,913 bytes**, and carry **2,356 bytes**, including every definition. These are ordinary Draft 2020-12 schemas, with local static `$ref` links and no custom keywords or validator hooks.
+The optional tally encoding replaces positional digit regexes with native JSON Schema cardinality checks. The invoice schema is **3,569 bytes**, allocation **3,913 bytes**, and carry **2,356 bytes**, including every definition; the even split, with a coefficient and two inequalities, is **12,278 bytes**. These are ordinary Draft 2020-12 schemas, with local static `$ref` links and no custom keywords or validator hooks.
 
 **This changes the data representation.** It does not shrink a schema that directly accepts the original flat decimal-string object. The original compiler remains the default. Both representations cover exactly the same bounded numeric values and equations; `encodeTally` preserves the supplied total, even when it is wrong. An application must pass the encoded record to the tally schema.
 

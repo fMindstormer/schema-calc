@@ -10,13 +10,13 @@
 </head>
 <body>
   <main>
-    <nav aria-label="Project"><a class="brand" href="./"><span class="mark">∑</span> schema calc<span class="version">v0.1.1</span></a><span class="local"><span></span> Runs locally in your browser</span></nav>
+    <nav aria-label="Project"><a class="brand" href="./"><span class="mark">∑</span> schema calc<span class="version">v0.2.0</span></a><span class="local"><span></span> Runs locally in your browser</span></nav>
     <header>
       <p class="eyebrow">ARITHMETIC → JSON SCHEMA</p>
       <h1>A schema that<br>does the math<span class="dot">.</span></h1>
       <p class="intro">Write an equation. Download its schema.<br>Exact decimal checks across fields, using your existing validator.</p>
     </header>
-    <div class="workspace-heading"><div class="presets" role="group" aria-label="Examples"><button data-preset="invoice" aria-pressed="true">Invoice</button><button data-preset="allocation" aria-pressed="false">Allocation</button><button data-preset="carry" aria-pressed="false">Carry chain</button></div><button class="quiet" id="reset">Reset example ↺</button></div>
+    <div class="workspace-heading"><div class="presets" role="group" aria-label="Examples"><button data-preset="invoice" aria-pressed="true">Invoice</button><button data-preset="allocation" aria-pressed="false">Allocation</button><button data-preset="carry" aria-pressed="false">Carry chain</button><button data-preset="split" aria-pressed="false">Even split</button></div><button class="quiet" id="reset">Reset example ↺</button></div>
     <section class="editors" aria-label="Compile and validate">
       <div class="editor"><div class="editor-heading"><label for="contract"><span>01</span> Define the contract</label><span class="file-type">JSON</span></div><textarea id="contract" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="contract-help"></textarea><p class="editor-help" id="contract-help">Use <code>+</code>, <code>-</code>, multiples like <code>3 * a</code>, and <code>=</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>&lt;</code> or <code>&gt;</code>. Bounds apply to every field.</p></div>
       <div class="editor"><div class="editor-heading"><label for="record"><span>02</span> Try a record</label><button class="tamper" id="tamper">Add one cent</button></div><textarea id="record" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="record-help"></textarea><p class="editor-help" id="record-help">Amounts are strings. A single wrong cent should fail.</p></div>

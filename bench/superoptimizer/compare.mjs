@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {workload} from './workload.mjs';
 import {compile as priorPair} from '../experimental/pair-compiler.mjs';
-import {presets} from '../../src/presets.mjs';
+import {benchmarked as presets} from '../../src/presets.mjs';
 const screen=JSON.parse(await readFile(new URL('../scratch/superoptimizer-screen.json',import.meta.url),'utf8'));
 for(const [name,preset]of Object.entries(presets)){
  const start=performance.now();const {schema,stats}=priorPair(preset.spec);

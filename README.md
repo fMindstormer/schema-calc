@@ -27,7 +27,7 @@ JSON Schema has no built-in operator for adding values from different properties
 
 The example schema is **41,364 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
-**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.1.1](https://github.com/fMindstormer/schema-calc/releases/tag/v0.1.1)**: the invoice schema, both records and a standalone Python validator.
+**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.2.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.2.0)**: the invoice schema, both records and a standalone Python validator.
 
 [One cent, two validators](#one-cent-two-validators) · [Computational model](#the-computational-model) · [Compression](#where-the-compression-comes-from) · [Verification](#verification) · [Research notes](#explore-the-project)
 
@@ -51,7 +51,7 @@ You need Python 3 and `jsonschema` 4.25.1; not Node, and not this repository:
 
 ```sh
 python3 -m pip install jsonschema==4.25.1
-base=https://github.com/fMindstormer/schema-calc/releases/download/v0.1.1
+base=https://github.com/fMindstormer/schema-calc/releases/download/v0.2.0
 for f in validate.py invoice.schema.json invoice.valid.json invoice.invalid.json; do curl -fLO "$base/$f"; done
 python3 validate.py invoice.schema.json invoice.valid.json invoice.invalid.json
 ```
@@ -81,7 +81,7 @@ npm run build
 npm start
 ```
 
-Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, or `999.99 + 0.01 = 1000.00` to exercise a long carry. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
+Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, `999.99 + 0.01 = 1000.00` to exercise a long carry, or an even split, where two inequalities hold each share to a third of the total rounded down to the cent. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
 
 ## What is it useful for?
 
@@ -120,7 +120,7 @@ const { schema, stats } = compile({
 });
 ```
 
-A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 17–20% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth, maxSubschemas })` changes the 32-level nesting limit and the limit of 2,000 subschemas between references.
+A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 17–21% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth, maxSubschemas })` changes the 32-level nesting limit and the limit of 2,000 subschemas between references.
 
 Ajv is a development dependency for the demo, tests and playground; it is not part of the compiler or the exported schema. See the runnable [JavaScript](examples/validate.mjs) and [Python](examples/validate.py) examples for the independent-validator handoff.
 
@@ -188,7 +188,7 @@ The result is a standard [Compound Schema Document](https://json-schema.org/unde
 | Allocation | 94,025 B | 21,935 B | **16,447 B** |
 | Carry chain | 129,290 B | 28,167 B | **20,605 B** |
 
-These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
+These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. The fourth example, the even split (`3 * share <= total`, `total < 3 * share + 0.03`), is 26,728 B; the earlier compilers predate coefficients and inequalities. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
 
 Version 0.1.0 emitted 41,232, 16,315 and 20,510 B. The current output spends 95 to 132 bytes more on an end-of-string check without lookahead and a 32-level nesting limit, so that validators in more languages load it; see the [compatibility table](compat/README.md). Timings and sizes recorded under `bench/` and in the experiment notes were measured on the 0.1.0 files.
 
@@ -229,8 +229,8 @@ The 36 Node tests cover the compiler, both representations, browser preparation,
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 31,101 | 64 |
-| Tally input, including malformed encodings | 30,622 | 66 |
+| Original flat input | 32,000 | 65 |
+| Tally input, including malformed encodings | 31,521 | 67 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import Ajv2020 from 'ajv/dist/2020.js';
 import {synthesize,evaluateProgram,points} from '../bench/superoptimizer/search.mjs';
 import {compile} from '../bench/superoptimizer/compiler.mjs';
-import {presets} from '../src/presets.mjs';
+import {benchmarked as presets} from '../src/presets.mjs';
 import {workload} from '../bench/superoptimizer/workload.mjs';
 
 test('synthesis represents every two-input Boolean function exactly',()=>{

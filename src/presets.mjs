@@ -37,5 +37,22 @@ export const presets = {
     valid: { balance: '999.99', deposit: '0.01', result: '1000.00' },
     invalid: { balance: '999.99', deposit: '0.01', result: '0.00' },
     tamper: { label: 'Drop the carry', field: 'result', delta: '-1000.00' }
+  },
+  split: {
+    label: 'Even split',
+    spec: {
+      title: 'Each share is a third of the total, rounded down to the cent',
+      integerDigits: 4,
+      scale: 2,
+      fields: ['total', 'share'],
+      constraints: ['3 * share <= total', 'total < 3 * share + 0.03']
+    },
+    valid: { total: '100.00', share: '33.33' },
+    invalid: { total: '100.00', share: '33.34' },
+    tamper: { label: 'Add one cent', field: 'share', delta: '0.01' }
   }
 };
+
+// The recorded benchmarks cover these three equations. The frozen compilers they
+// compare against predate inequalities.
+export const benchmarked = Object.fromEntries(['invoice', 'allocation', 'carry'].map(name => [name, presets[name]]));

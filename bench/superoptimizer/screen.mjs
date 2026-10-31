@@ -1,7 +1,7 @@
 import {writeFile,mkdir} from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import {compile} from './compiler.mjs';
-import {presets} from '../../src/presets.mjs';
+import {benchmarked as presets} from '../../src/presets.mjs';
 import {compile as production} from '../../src/compiler.mjs';
 import {compile as fast} from '../mixed-radix-compiler.mjs';
 const cases=[];

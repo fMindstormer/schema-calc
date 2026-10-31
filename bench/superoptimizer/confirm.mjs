@@ -3,7 +3,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {workload} from './workload.mjs';
-import {presets} from '../../src/presets.mjs';
+import {benchmarked as presets} from '../../src/presets.mjs';
 const all=JSON.parse(await readFile(new URL('../scratch/superoptimizer-benchmark.json',import.meta.url),'utf8'));
 const targets={invoice:['production','packed-binary-1600'],allocation:['production','prior-pair','packed-binary-1600'],
  carry:['production','prior-pair','packed-binary-24','packed-both-24','packed-both-400']};

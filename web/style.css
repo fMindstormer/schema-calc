@@ -570,6 +570,10 @@ footer .links {
   .intro {
     font-size: 14px;
   }
+  .workspace-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   .presets button {
     padding: 7px 10px;
   }

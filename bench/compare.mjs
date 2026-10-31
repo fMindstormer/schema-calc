@@ -5,7 +5,7 @@ import { compile as baseline } from './baseline-compiler.mjs';
 import { compile as mixedRadix } from './mixed-radix-compiler.mjs';
 import { compile as optimized } from '../src/compiler.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
-import { presets } from '../src/presets.mjs';
+import { benchmarked as presets } from '../src/presets.mjs';
 
 const rows = [];
 for (const [name, preset] of Object.entries(presets)) {

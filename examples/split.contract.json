@@ -1,0 +1,13 @@
+{
+  "title": "Each share is a third of the total, rounded down to the cent",
+  "integerDigits": 4,
+  "scale": 2,
+  "fields": [
+    "total",
+    "share"
+  ],
+  "constraints": [
+    "3 * share <= total",
+    "total < 3 * share + 0.03"
+  ]
+}

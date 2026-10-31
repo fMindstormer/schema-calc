@@ -216,6 +216,12 @@ test('inequalities at full precision, against constants and alongside equations'
   constants({ a: '0.00' }, true); constants({ a: '9.99' }, true);
   const never = contract('false constant relation', { fields: ['a'], constraints: ['2 < 2'], integerDigits: 1, scale: 0 });
   never({ a: '0' }, false);
+  const split = contract('even split', presets.split.spec);
+  split(presets.split.valid, true); split(presets.split.invalid, false);
+  for (let i = 0; i < 300; i++) {
+    const total = BigInt(i < 100 ? i : random(1000000)), share = total / 3n;
+    for (const candidate of [share - 1n, share, share + 1n]) if (candidate >= 0n) split({ total: money(total), share: money(candidate) }, candidate === share);
+  }
   const invoice = contract('invoice with a discount bound', { ...presets.invoice.spec, constraints: [...presets.invoice.spec.constraints, 'discount <= subtotal'] });
   invoice(presets.invoice.valid, true); invoice(presets.invoice.invalid, false);
   for (let i = 0; i < 200; i++) {

@@ -3,7 +3,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { compile as mixedRadix } from './mixed-radix-compiler.mjs';
 import { compile as packed } from '../src/compiler.mjs';
 import { compileTally, encodeTally } from '../src/tally.mjs';
-import { presets } from '../src/presets.mjs';
+import { benchmarked as presets } from '../src/presets.mjs';
 
 function measure(action) {
   for (let i = 0; i < 1000; i++) action();
