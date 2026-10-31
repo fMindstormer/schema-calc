@@ -12,7 +12,7 @@ Every internal digit predicate tests a set that excludes zero; if necessary the 
 
 ## Normalization
 
-Move the right side of the equality to the left. Combine repeated fields into signed integer coefficients; remove zero coefficients. Parse decimal constants using BigInt and scale them into minor units. Individual constants must fit the declared precision, but their combined signed sum may exceed one field's width.
+Move the right side of the equality to the left. A term may multiply a field by a whole number from 1 to 1,000, written `3 * a` or `a * 3`. Combine each field's terms into one signed integer coefficient; remove zero coefficients. Parse decimal constants using BigInt and scale them into minor units. Individual constants must fit the declared precision, but their combined signed sum may exceed one field's width.
 
 No record's numeric value is evaluated by the compiler: only the contract is input to compilation. Numeric operations used during compilation concern finite states, digit values and constants known before any record exists.
 
@@ -51,6 +51,7 @@ This decomposition reduces the range of intermediate balances before the next fi
 5. Merge compatible conjunctions containing only independent `type`, `properties`, `$ref` and `not` keywords. Conflicting values remain in `allOf`. Conditional keywords are never merged across branches. Draft 2020-12 permits siblings of `$ref`.
 6. Traverse the reduced graph from its roots. At the first use of a shared node, emit its body with a short relative `$id`, such as `a`. Later uses emit `$ref: "a"`. This removes the separate `$defs` key and the first reference. All resource IDs resolve as siblings under one absolute document namespace. Every resource is embedded in the output file.
 7. Keep the file within 32 levels of JSON nesting. Embedding at first use nests resources inside one another, and the invoice would otherwise reach 85 levels. That exceeds the default limit of .NET's System.Text.Json, 64, and networknt's loading time grows steeply with depth: it does not load the invoice within two minutes at 56 levels, but loads the whole corpus in seconds at 32. Bottom up, wherever a subschema would exceed the limit, the tallest subschemas under it move into a root `$defs` and are replaced by `$ref`. A moved resource keeps its `$id`; a moved inline subschema receives a fresh numeric one. Letter names are assigned in declaration order, so an embedded resource's name is never a suffix of the name enclosing it. A number keeps that true for moved pieces, which matters because json-sKema 0.32 ignores an `$id` that its enclosing resource's URI already ends with. Pieces in `$defs` start two levels down, so every piece is held to 30 levels. The invoice moves three subschemas, for 63 bytes; `compile(spec, { maxDepth })` sets another limit.
+8. Keep at most 2,000 subschemas between references. Ajv and schemasafe compile each such region into one function, and large coefficients produce wide regions: with 13,000 to 26,000 subschemas in one, Ajv's call stack overflowed while validating some records. Bottom up, wherever a region would exceed the limit, its largest subschemas move into the root `$defs` as in step 7. The three examples have at most 600 subschemas per region, so this moves nothing in them; `compile(spec, { maxSubschemas })` sets another limit.
 
 The optional `defs` layout (`compile(spec, { layout: 'defs' })`, or `--defs`) skips first-use embedding in step 6: every shared resource is declared in root `$defs` and every use is a `$ref`. No resource then sits inside another, which @cfworker/json-schema requires. It costs 17–20% more bytes for the three examples.
 
@@ -84,8 +85,8 @@ For browser preparation, a separate in-memory copy is unbundled: embedded declar
 
 ## Current boundaries
 
-The artifact checks equality. It does not calculate a missing total, modify input data, or infer a value. Negative input strings, inequalities, multiplication, division and arrays are outside the current source grammar.
+The artifact checks equality. It does not calculate a missing total, modify input data, or infer a value. Negative input strings, inequalities, products of fields, non-integer coefficients, division and arrays are outside the current source grammar.
 
-The source parser accepts only an explicit sum/difference grammar and never executes source text. Unsupported operators and unknown options are rejected. The generated file is self-contained: every reference resolves to an embedded resource and no network retrieval is needed.
+The source parser accepts only an explicit grammar of sums and differences of fields, whole-number multiples of fields and decimal constants, and never executes source text. Unsupported operators and unknown options are rejected. The generated file is self-contained: every reference resolves to an embedded resource and no network retrieval is needed.
 
-Potential follow-up work should preserve these properties: better variable ordering, per-equation failure messages, inequalities, per-field bounds, and constant multiplication with explicit size/runtime measurements. The frozen whole-digit compiler and reproducible benchmark provide a baseline for comparing changes without quietly narrowing the domain.
+Potential follow-up work should preserve these properties: better variable ordering, per-equation failure messages, inequalities, per-field bounds, and multiplication by decimal constants with rounding, with explicit size/runtime measurements. The frozen whole-digit compiler and reproducible benchmark provide a baseline for comparing changes without quietly narrowing the domain.

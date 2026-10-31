@@ -5,17 +5,24 @@ import { execFileSync } from 'node:child_process';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { compile } from '../src/compiler.mjs';
 import { presets } from '../src/presets.mjs';
-import { schemaResources, MAX_DEPTH } from '../src/resources.mjs';
+import { schemaResources, MAX_DEPTH, MAX_SUBSCHEMAS } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
-import { compileTally, encodeTally, decodeTally } from '../src/tally.mjs';
+import { compileTally, encodeTally, decodeTally, MAX_TALLY_COPIES } from '../src/tally.mjs';
+import { parseEquation, normalizeSpec } from '../src/syntax.mjs';
 
 const corpus = [];
 const tallyCorpus = [];
-function contract(name, spec) {
+function contract(name, spec, { tally = true } = {}) {
   const { schema } = compile(spec);
   const validator = new Ajv2020({ strict: true, inlineRefs: false }).compile(schema);
   const group = { name, spec, schema, cases: [] };
   corpus.push(group);
+  if (!tally) {
+    return (data, expected) => {
+      assert.equal(validator(data), expected, `${name}: ${JSON.stringify(data)}`);
+      group.cases.push({ data, expected });
+    };
+  }
   const tallySchema = compileTally(spec).schema;
   const tallyValidator = new Ajv2020({ strict: true, inlineRefs: false }).compile(tallySchema);
   const tallyGroup = { name, schema: tallySchema, cases: [] };
@@ -128,6 +135,43 @@ test('signed and repeated terms, cancellation, and constant-only equations', () 
   }
 });
 
+test('whole-number coefficients agree with an independent BigInt oracle', () => {
+  // Coefficients and expected values are generated independently of the source parser.
+  // 17 and above have no tally encoding; 1000 also overflowed Ajv's stack before region limits.
+  const magnitudes = [2, 3, 7, 12, 16, 17, 100, 1000];
+  for (let i = 0; i < magnitudes.length; i++) {
+    const ca = magnitudes[i] * (i % 3 === 1 ? -1 : 1);
+    const cb = (1 + random(16)) * (random(2) ? 1 : -1);
+    const constant = random(41) - 20;
+    const term = (c, name, swap) => `${c < 0 ? '-' : '+'} ${swap ? `${name} * ${Math.abs(c)}` : `${Math.abs(c)} * ${name}`}`;
+    const equation = `result = ${term(ca, 'a', i % 2)} ${term(cb, 'b', i % 3 === 0)} ${constant < 0 ? '-' : '+'} ${money(Math.abs(constant), 1)}`;
+    const spec = { fields: ['a', 'b', 'result'], constraints: [equation], integerDigits: 3, scale: 1 };
+    const check = contract(`coefficients ${i}`, spec, { tally: Math.abs(ca) <= MAX_TALLY_COPIES });
+    for (let j = 0; j < 80; j++) {
+      // Keep each product within range half of the time, so that true cases occur.
+      const bound = c => j % 2 ? Math.floor(10000 / Math.abs(c)) + 1 : 10000;
+      const a = BigInt(random(bound(ca))), b = BigInt(random(bound(cb)));
+      const expected = BigInt(ca) * a + BigInt(cb) * b + BigInt(constant);
+      const result = expected >= 0n && expected < 10000n ? expected : BigInt(random(10000));
+      check({ a: money(a, 1), b: money(b, 1), result: money(result, 1) }, result === expected);
+      const alternate = (result + 1n) % 10000n;
+      check({ a: money(a, 1), b: money(b, 1), result: money(alternate, 1) }, alternate === expected);
+    }
+  }
+});
+
+test('a coefficient means repeated terms, in either order', () => {
+  const spec = normalizeSpec({ fields: ['a', 'b', 'c'], constraints: ['a = b'] });
+  const terms = source => parseEquation(source, spec).terms;
+  assert.deepEqual(terms('3 * a + b = c'), terms('a + a + a + b = c'));
+  assert.deepEqual(terms('a*3 + b = c'), terms('3*a + b = c'));
+  assert.deepEqual(terms('c - 2 * a = b'), [['a', -2], ['b', -1], ['c', 1]]);
+  assert.deepEqual(terms('2 * a - a * 2 = 0'), []);
+  assert.deepEqual(terms('1000 * a = c'), [['a', 1000], ['c', -1]]);
+  const check = contract('coefficient and repetition', { fields: ['a', 'b'], constraints: ['16 * a = b + b'], integerDigits: 2, scale: 0 });
+  for (let a = 0; a < 13; a++) for (const b of [8 * a, 8 * a + 1]) if (b < 100) check({ a: String(a), b: String(b) }, b === 8 * a);
+});
+
 test('tautologies still enforce field formats', () => {
   const check = contract('tautology', { fields: ['a'], constraints: ['a = a + 0'], integerDigits: 1, scale: 0 });
   check({ a: '0' }, true); check({ a: '9' }, true); check({ a: '10' }, false);
@@ -158,9 +202,15 @@ test('precision boundaries and zero fractional digits', () => {
 
 test('reject unsupported or ambiguous source syntax', () => {
   const base = { fields: ['a', 'b'], constraints: ['a = b'] };
-  for (const equation of ['a == b', 'a <= b', 'a = b * 2', 'a = (b)', 'a = unknown', 'a =', '= b', 'a = 1.001', 'a = 10000', 'a = b; process.exit()', 'a + + b = 0']) {
+  for (const equation of ['a == b', 'a <= b', 'a = (b)', 'a = unknown', 'a =', '= b', 'a = 1.001', 'a = 10000', 'a = b; process.exit()', 'a + + b = 0']) {
     assert.throws(() => compile({ ...base, constraints: [equation] }), equation);
   }
+  for (const [equation, message] of [
+    ['a = b * b', /Fields cannot be multiplied together/], ['a * b = 0', /Fields cannot be multiplied together/],
+    ['a = 1.5 * b', /whole number from 1 to 1000; found 1\.5/], ['a = 0 * b', /found 0\./], ['a = 02 * b', /found 02\./],
+    ['a = 1001 * b', /found 1001\./], ['a = 2 * 3', /Multiply a field by a whole number/], ['a = 2b', /Write 2 \* b/],
+    ['a = 2 * b * 3', /at most one coefficient/], ['a = b *', /Missing term/], ['a = * b', /found "\*"/], ['a = -2 * -b', /Multiply a field by a whole number/]
+  ]) assert.throws(() => compile({ ...base, constraints: [equation] }), message, equation);
   for (const bad of [{ fields: [] }, { fields: ['a', 'a'] }, { fields: ['__proto__'] }, { integerDigits: 0 }, { scale: 5 }, { integerDigits: 10, scale: 4 }, { constraints: [] }, { title: 42 }, { integerDigit: 3 }]) {
     assert.throws(() => compile({ ...base, ...bad }));
   }
@@ -204,12 +254,18 @@ test('every reference resolves inside the self-contained standard schema documen
   }
 });
 
-test('flat schemas avoid regex lookaround and stay within parser depth limits', () => {
+test('flat schemas avoid regex lookaround and stay within parser depth and size limits', () => {
   // RE2 has no lookaround; System.Text.Json reads 64 levels by default, and networknt slows sharply with depth.
   const depth = value => value && typeof value === 'object' ? 1 + Math.max(0, ...Object.values(value).map(depth)) : 0;
+  // Subschemas reachable without crossing a $ref, which Ajv compiles into one function.
+  const region = node => !node || typeof node !== 'object' ? 1 : 1 + Object.entries(node).reduce((n, [key, value]) =>
+    n + (['if', 'then', 'else', 'not'].includes(key) ? region(value)
+      : ['allOf', 'properties'].includes(key) ? Object.values(value).reduce((m, child) => m + region(child), 0) : 0), 0);
+  const largestRegion = schema => Math.max(region(schema), ...Object.values(schema.$defs ?? {}).map(region));
   const patterns = new Set();
   for (const { name, schema } of corpus) {
     assert.ok(depth(schema) <= MAX_DEPTH, `${name} nests ${depth(schema)} levels`);
+    assert.ok(largestRegion(schema) <= MAX_SUBSCHEMAS, `${name} has ${largestRegion(schema)} subschemas in one region`);
     JSON.stringify(schema, (key, value) => (key === 'pattern' && patterns.add(value), value));
   }
   for (const pattern of patterns) assert.doesNotMatch(pattern, /\(\?[=!<]/);
@@ -221,6 +277,11 @@ test('flat schemas avoid regex lookaround and stay within parser depth limits', 
   for (const group of corpus.filter(g => depth(g.schema) > 24)) {
     const { schema } = compile(group.spec, { maxDepth: 8 });
     assert.ok(depth(schema) <= 8);
+    check(group, schema);
+  }
+  for (const group of corpus.filter(g => largestRegion(g.schema) > 1000).slice(0, 4)) {
+    const { schema } = compile(group.spec, { maxSubschemas: 50 });
+    assert.ok(largestRegion(schema) <= 50);
     check(group, schema);
   }
   // The defs layout declares every resource directly in root $defs, none inside another.
@@ -342,6 +403,16 @@ test('tally compiler is compact, deterministic, self-contained and uses only sta
     import { prepareValidator } from './src/ajv-validator.mjs';
     if (!prepareValidator(compileTally(presets.invoice.spec).schema)(encodeTally(presets.invoice.spec, presets.invoice.valid))) process.exit(1);
   `], { cwd: new URL('../', import.meta.url), stdio: 'pipe' });
+});
+
+test('the tally encoding refuses coefficients above sixteen', () => {
+  const spec = constraints => ({ fields: ['a', 'b'], constraints, integerDigits: 2, scale: 0 });
+  assert.ok(compileTally(spec([`${MAX_TALLY_COPIES} * a = b`])).stats.bytes > 0);
+  for (const constraints of [['17 * a = b'], ['a * 9 + 8 * a = b'], ['a = b', '-17 * b = a - 99']]) {
+    assert.throws(() => compileTally(spec(constraints)), /tally encoding supports coefficients up to 16/);
+    assert.throws(() => encodeTally(spec(constraints), { a: '0', b: '0' }), /tally encoding/);
+    assert.ok(compile(spec(constraints)).stats.bytes > 0);
+  }
 });
 
 test('tally arithmetic scales to twelve digits and the sixteen-term limit', () => {

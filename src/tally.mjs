@@ -5,6 +5,9 @@ const ref = id => ({ $ref: `#/$defs/${id}` });
 const exactCount = (tags, count) => ({ type: 'array', contains: tags.length === 1 ? { const: tags[0] } : { enum: tags },
   minContains: count, maxContains: count });
 const digitAt = (value, position) => Number((value < 0n ? -value : value) / (10n ** BigInt(position)) % 10n);
+// A field has one tally block per unit of its largest coefficient, and the schema
+// grows roughly with the cube of that count: tens of kilobytes at 16, megabytes at 100.
+export const MAX_TALLY_COPIES = 16;
 
 function layout(input) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
@@ -12,6 +15,9 @@ function layout(input) {
   let next = 1;
   const fields = spec.fields.map(name => {
     const copies = Math.max(1, ...equations.map(e => Math.abs(e.terms.find(([f]) => f === name)?.[1] ?? 0)));
+    if (copies > MAX_TALLY_COPIES) {
+      throw new Error(`The tally encoding supports coefficients up to ${MAX_TALLY_COPIES}; ${name} has ${copies}. Use the flat encoding.`);
+    }
     return { name, tags: Array.from({ length: copies }, () => next++) };
   });
   const constants = equations.flatMap((equation, index) => equation.constant === 0n ? [] :

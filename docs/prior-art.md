@@ -19,7 +19,7 @@ Schema Calc instead pays a compilation and file-size cost to encode a finite ari
 - A concrete output: download a schema, send it to an independent validator, and reject an incorrect invoice without installing this compiler in the receiving application.
 - A checkable construction: a carry invariant, a mixed-radix transition proof, and exact domain restrictions.
 - A measured improvement: the same invoice contract shrank from 284,300 to 57,050 and then 41,232 uncompressed bytes, with frozen baselines and a reproducible comparison. Packing trades validator speed for file size. The later tally encoding reaches 3,569 bytes by changing the input representation; it uses native counting and reusable carry states, with explicit input-size and conversion costs.
-- Independent evidence: the same 24,472 records across 31 schemas pass Ajv and Python jsonschema, alongside a proof sketch rather than tests alone. The tally format separately passes 24,473 records across 36 schemas, including forged constants and repeated-field copies.
+- Independent evidence: the same 25,778 records across 40 schemas pass Ajv and Python jsonschema, alongside a proof sketch rather than tests alone. The tally format separately passes 25,299 records across 42 schemas, including forged constants and repeated-field copies.
 
 The project explores compiling useful computations into a restrictive host. Its family resemblance to regex arithmetic is deliberate: a familiar declarative format becomes an unexpected execution target. The exported schema, rather than a compiler-specific runtime, is the artifact a receiving application uses.
 

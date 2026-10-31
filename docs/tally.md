@@ -39,7 +39,7 @@ A nonzero combined constant gets a dedicated tally block in every column. The sh
 
 For a coefficient with magnitude greater than one, the field has repeated tally blocks. A shape rule requires every copy to have the same count as its primary block. Each equation selects as many copies as its coefficient requires. This also ties shared field values across multiple equations. Without those consistency checks, `a + a = total` could accept separate copies representing 2 and 3 with total 5; the tests explicitly reject that attack.
 
-The source language and its limits are unchanged, including signed intermediate carries, repeated terms, constants that sum beyond one field's width, and multiple simultaneous equations. Weighted equations can have substantially larger schemas and records than the three unit-coefficient examples.
+The source language and its limits are the same as for flat input, including signed intermediate carries, repeated terms, constants that sum beyond one field's width, and multiple simultaneous equations, with one exception. A coefficient of `k` needs `k` copies of the field, and each carry decision lists every copy, so the schema grows roughly with `k³`: for `total = k * price + shipping` it is 2.3 kB at `k` = 1, 38 kB at 10 and 87 kB at 16. The tally encoding therefore refuses coefficients above 16, the most that 16 source terms could produce before explicit coefficients existed. Flat input accepts coefficients up to 1,000.
 
 ## Correctness invariant
 

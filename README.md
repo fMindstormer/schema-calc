@@ -120,7 +120,7 @@ const { schema, stats } = compile({
 });
 ```
 
-A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 17–20% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth })` changes the 32-level nesting limit.
+A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 17–20% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth, maxSubschemas })` changes the 32-level nesting limit and the limit of 2,000 subschemas between references.
 
 Ajv is a development dependency for the demo, tests and playground; it is not part of the compiler or the exported schema. See the runnable [JavaScript](examples/validate.mjs) and [Python](examples/validate.py) examples for the independent-validator handoff.
 
@@ -128,13 +128,14 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 
 | Supported | Boundary |
 |---|---|
-| Field names, decimal constants, `+`, `-`, `=` | Equalities only; no multiplication, division, parentheses or comparisons |
+| Field names, decimal constants, `+`, `-`, `=` | Equalities only; no division, parentheses or comparisons |
+| Whole-number coefficients: `3 * a` or `a * 3` | From 1 to 1,000; fields cannot be multiplied together |
 | Repeated terms, unary signs, simultaneous equations | Up to 8 fields, 8 equations and 16 source terms per equation |
 | Exact, nonnegative decimal **strings** | No JSON numbers, signed input strings, exponents or leading zeroes |
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
 
-All declared fields are required and extra properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. A 40,000-definition budget can reject especially large contracts even within the syntax limits. Nested objects, arrays and custom arithmetic error messages are outside the current compiler.
+All declared fields are required and extra properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Nested objects, arrays and custom arithmetic error messages are outside the current compiler.
 
 ## The computational model
 
@@ -221,20 +222,20 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 29 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 32 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 24,472 | 31 |
-| Tally input, including malformed encodings | 24,473 | 36 |
+| Original flat input | 25,778 | 40 |
+| Tally input, including malformed encodings | 25,299 | 42 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
 
-The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and ten of the twelve load every schema. @cfworker/json-schema refuses resources nested inside other resources, and loads everything with the `--defs` layout. jsonschema-rs runs out of memory loading the larger flat schemas in either layout.
+The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and nine of the twelve load every schema. @cfworker/json-schema refuses resources nested inside other resources, and loads everything with the `--defs` layout. @exodus/schemasafe times out loading the two largest schemas, compiled from coefficients of 100 and 1,000. jsonschema-rs runs out of memory loading the larger flat schemas in either layout.
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
+Coverage includes exhaustive small additions, every pair of two-digit addends, independent BigInt-oracle cases, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the production suites and build on Node 20 and 24, plus the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
 
 ## Explore the project
 

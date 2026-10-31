@@ -2,6 +2,10 @@
 // networknt's loading time grows steeply with nesting: at 56 levels the invoice
 // does not load within two minutes, while at 32 the whole corpus loads in seconds.
 export const MAX_DEPTH = 32;
+// Ajv and schemasafe compile everything between two references into one function.
+// With 13,000 to 26,000 subschemas in such a region, Ajv's call stack overflowed
+// while validating some records; the shipped examples have at most 600.
+export const MAX_SUBSCHEMAS = 2000;
 const SUBSCHEMA = new Set(['if', 'then', 'else', 'not']);
 const SUBSCHEMA_MAPS = new Set(['allOf', 'properties']);
 
@@ -21,11 +25,12 @@ function height(value) {
 /** Pack a static $defs graph as a self-contained compound schema document.
  * By default a shared node is declared at its first use; later uses refer to its
  * short $id. The 'defs' layout declares every shared node in root $defs instead,
- * so no resource sits inside another. Either way, subschemas that would nest
- * deeper than maxDepth JSON levels move to root $defs.
+ * so no resource sits inside another. Either way, subschemas move to root $defs
+ * where the file would nest deeper than maxDepth JSON levels, or hold more than
+ * maxSubschemas subschemas without a reference between them.
  * The reserved .invalid origin identifies bundled resources, not network files.
  */
-export function packResources(graph, { maxDepth = MAX_DEPTH, layout = 'embedded' } = {}) {
+export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, layout = 'embedded' } = {}) {
   if (!['embedded', 'defs'].includes(layout)) throw new Error(`Unknown layout: ${layout}`);
   const names = new Map(), emitted = new Set(), declared = {};
   function name(id) {
@@ -74,6 +79,18 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, layout = 'embedded'
   // Bottom up, the tallest subschemas of an over-budget node move out first.
   const budget = maxDepth - 2, moved = {};
   let fresh = 0;
+  function move(slot) {
+    // Every resource name is one relative segment of the same namespace, so a
+    // reference inside a moved piece still resolves to the same resource. New
+    // names are numbers: json-sKema 0.32 ignores an $id that ends its enclosing
+    // resource's URI, so no letter name may be a suffix of an enclosing name.
+    const child = slot.parent[slot.key], id = child.$id ?? String(fresh++);
+    moved[id] = child.$id ? child : { $id: id, ...child };
+    slot.parent[slot.key] = { $ref: id };
+    slot.height = slot.extra + 1;
+    slot.size = 1;
+  }
+  // Returns the node's height and the number of subschemas it holds without a reference.
   function fit(node) {
     const slots = [];
     let fixed = 1;
@@ -85,22 +102,23 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, layout = 'embedded'
     }
     for (const slot of slots) {
       const child = slot.parent[slot.key];
-      slot.height = slot.extra + (typeof child === 'object' ? fit(child) : 0);
+      [slot.height, slot.size] = typeof child === 'object' ? fit(child) : [0, 1];
+      slot.height += slot.extra;
     }
     for (const slot of slots.sort((a, b) => b.height - a.height)) {
       if (slot.height <= budget) break;
-      // Every resource name is one relative segment of the same namespace, so a
-      // reference inside a moved piece still resolves to the same resource. New
-      // names are numbers: json-sKema 0.32 ignores an $id that ends its enclosing
-      // resource's URI, so no letter name may be a suffix of an enclosing name.
-      const child = slot.parent[slot.key], id = child.$id ?? String(fresh++);
-      moved[id] = child.$id ? child : { $id: id, ...child };
-      slot.parent[slot.key] = { $ref: id };
-      slot.height = slot.extra + 1;
+      move(slot);
+    }
+    let size = 1 + slots.reduce((n, slot) => n + slot.size, 0);
+    for (const slot of slots.sort((a, b) => b.size - a.size)) {
+      if (size <= maxSubschemas || slot.size === 1) break;
+      size -= slot.size - 1;
+      move(slot);
     }
     const result = Math.max(fixed, ...slots.map(slot => slot.height));
     if (result > budget) throw new Error(`A schema node cannot fit within ${maxDepth} levels.`);
-    return result;
+    if (size > maxSubschemas) throw new Error(`A schema node cannot fit within ${maxSubschemas} subschemas.`);
+    return [result, size];
   }
   fit(schema);
   Object.values(declared).forEach(fit);

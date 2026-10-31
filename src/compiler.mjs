@@ -1,5 +1,5 @@
 import { normalizeSpec, parseEquation, amountSchema, DRAFT } from './syntax.mjs';
-import { packResources, MAX_DEPTH } from './resources.mjs';
+import { packResources, MAX_DEPTH, MAX_SUBSCHEMAS } from './resources.mjs';
 
 const RADICES = [2, 5];
 const ALL_DIGITS = (1 << 10) - 1;
@@ -25,7 +25,7 @@ function pattern(position, mask, scale) {
   return `${digitClass(mask)}${suffix}$`;
 }
 
-export function compile(input, { maxDepth = MAX_DEPTH, layout = 'embedded' } = {}) {
+export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, layout = 'embedded' } = {}) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
   const equations = spec.constraints.map(source => parseEquation(source, spec));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
@@ -205,7 +205,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, layout = 'embedded' } = {
       .filter(([key]) => live.has(key) && !inline.has(key))
       .map(([key, node]) => [key, emit(node)]))
   };
-  const { schema, resources } = packResources(graph, { maxDepth, layout });
+  const { schema, resources } = packResources(graph, { maxDepth, maxSubschemas, layout });
   const decisionIds = new Set(interned.values());
   const testsPerDigit = RADICES.reduce((n, radix) => n + Math.ceil(Math.log2(radix)), 0);
   return { schema, stats: {

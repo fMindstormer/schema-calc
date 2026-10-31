@@ -25,23 +25,45 @@ export function normalizeSpec(spec) {
   return { fields: [...fields], constraints: [...constraints], integerDigits, scale, title };
 }
 
-/** Parse sums/differences without eval. Constants are converted exactly to minor units. */
+export const MAX_COEFFICIENT = 1000;
+function coefficient(token) {
+  if (!/^[1-9][0-9]*$/.test(token) || Number(token) > MAX_COEFFICIENT) {
+    throw new Error(`A coefficient must be a whole number from 1 to ${MAX_COEFFICIENT}; found ${token}.`);
+  }
+  return Number(token);
+}
+
+/** Parse sums/differences of fields, each optionally multiplied by a whole number,
+ * without eval. Constants are converted exactly to minor units.
+ */
 export function parseEquation(source, spec) {
   if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
-  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|[+=-]|\S/g) ?? [];
+  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|[+=*-]|\S/g) ?? [];
   let cursor = 0, termCount = 0, constant = 0n;
   const coefficients = new Map(spec.fields.map(f => [f, 0]));
   function expression(side) {
     let sign = 1;
     if (tokens[cursor] === '+' || tokens[cursor] === '-') sign = tokens[cursor++] === '+' ? 1 : -1;
     while (true) {
-      const token = tokens[cursor++];
+      let token = tokens[cursor++], factor = 1;
       if (!token) throw new Error(`Missing term in equation: ${source}`);
       if (++termCount > 16) throw new Error('An equation may contain at most 16 terms.');
+      if (tokens[cursor] === '*') {
+        // A term is a field times a whole number, in either order.
+        const other = tokens[cursor + 1];
+        cursor += 2;
+        if (!other) throw new Error(`Missing term in equation: ${source}`);
+        if (IDENTIFIER.test(token) && IDENTIFIER.test(other)) throw new Error(`Fields cannot be multiplied together: ${token} * ${other}.`);
+        if (IDENTIFIER.test(token)) factor = coefficient(other);
+        else [factor, token] = [coefficient(token), other];
+        if (!IDENTIFIER.test(token)) throw new Error(`Multiply a field by a whole number; found ${factor} * ${token}.`);
+        if (tokens[cursor] === '*') throw new Error('A term may have at most one coefficient.');
+      }
       if (IDENTIFIER.test(token)) {
         if (!coefficients.has(token)) throw new Error(`Unknown field: ${token}`);
-        coefficients.set(token, coefficients.get(token) + side * sign);
+        coefficients.set(token, coefficients.get(token) + side * sign * factor);
       } else if (/^[0-9]+(?:\.[0-9]+)?$/.test(token)) {
+        if (IDENTIFIER.test(tokens[cursor] ?? '')) throw new Error(`Write ${token} * ${tokens[cursor]} to multiply a field.`);
         const [whole, fraction = ''] = token.split('.');
         if (whole.length > spec.integerDigits || fraction.length > spec.scale) throw new Error(`Constant ${token} exceeds the declared precision.`);
         constant += BigInt(side * sign) * BigInt(whole + fraction.padEnd(spec.scale, '0'));
