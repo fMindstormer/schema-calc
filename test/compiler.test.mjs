@@ -309,6 +309,32 @@ test('list records are checked like fields', () => {
   assert.throws(() => compileTally(spec), /tally encoding does not support lists/);
 });
 
+test('lists of objects sum named fields and allow other properties', () => {
+  const lines = contract('object lines', { fields: ['subtotal'], lists: { lines: { maxItems: 5, fields: ['amount'] } }, constraints: ['sum(lines.amount) = subtotal'] }, { tally: false });
+  for (let i = 0; i < 150; i++) {
+    const amounts = Array.from({ length: random(997) % 6 }, () => BigInt(random(200000)));
+    const sum = amounts.reduce((a, b) => a + b, 0n);
+    const items = amounts.map((amount, j) => j % 2 ? { amount: money(amount) } : { description: `item ${j}`, amount: money(amount), quantity: j });
+    for (const subtotal of [sum, sum + 1n, sum - 1n]) if (subtotal >= 0n && subtotal < 1000000n) lines({ lines: items, subtotal: money(subtotal) }, subtotal === sum);
+  }
+  for (const items of [[{ description: 'no amount' }], [{ amount: '1.0' }], ['1.00'], [null], [{ amount: 1 }], [{ amount: '1.00' }, { amount: '1.00' }, { amount: '1.00' }, { amount: '1.00' }, { amount: '1.00' }, { amount: '1.00' }]]) {
+    lines({ lines: items, subtotal: '1.00' }, false);
+  }
+  const taxed = contract('net and tax lines', {
+    fields: ['net', 'tax', 'total'], lists: { lines: { maxItems: 4, fields: ['net', 'tax'] } },
+    constraints: ['sum(lines.net) = net', 'sum(lines.tax) = tax', 'total = net + tax', 'tax <= net']
+  }, { tally: false });
+  // Python's jsonschema spends most of its corpus time on this schema; fewer records still reach every length.
+  for (let i = 0; i < 60; i++) {
+    const items = Array.from({ length: random(997) % 5 }, () => [BigInt(random(200000)), BigInt(random(i % 2 ? 20000 : 200000))]);
+    const net = items.reduce((a, [n]) => a + n, 0n), tax = items.reduce((a, [, x]) => a + x, 0n);
+    const record = { lines: items.map(([n, x]) => ({ sku: 'A-1', net: money(n), tax: money(x) })) };
+    for (const [n, x] of [[net, tax], [net, tax + 1n], [net + 1n, tax]]) {
+      if (n + x < 1000000n) taxed({ ...record, net: money(n), tax: money(x), total: money(n + x) }, n === net && x === tax && tax <= net);
+    }
+  }
+});
+
 test('list syntax and declarations', () => {
   const spec = normalizeSpec({ fields: ['total'], lists: { lines: 3 }, constraints: ['total = 0'] });
   const terms = source => parseConstraint(source, spec).terms;
@@ -325,6 +351,19 @@ test('list syntax and declarations', () => {
     assert.throws(() => normalizeSpec({ ...base, lists }), message, JSON.stringify(lists));
   }
   assert.throws(() => normalizeSpec({ fields: [], constraints: ['0 = 0'] }), /at least one field or list/);
+  const objects = normalizeSpec({ fields: ['total'], lists: { lines: { maxItems: 2, fields: ['net', 'tax'] } }, constraints: ['total = 0'] });
+  assert.deepEqual(parseConstraint('sum( lines . tax ) = total', objects).terms, [['total', -1], ['lines[0].tax', 1], ['lines[1].tax', 1]]);
+  for (const [equation, message] of [['sum(lines) = total', /lines holds objects; write sum\(lines\.net\)/], ['lines = total', /write sum\(lines\.net\)/],
+    ['sum(lines.gross) = total', /Unknown field of lines: gross/]]) {
+    assert.throws(() => parseConstraint(equation, objects), message, equation);
+  }
+  assert.throws(() => parseConstraint('sum(lines.amount) = total', spec), /lines holds amounts; write sum\(lines\)/);
+  for (const [lists, message] of [[{ lines: { maxItems: 2 } }, /between 1 and 4 amount fields/], [{ lines: { maxItems: 2, fields: [] } }, /between 1 and 4/],
+    [{ lines: { maxItems: 2, fields: ['a', 'a'] } }, /unique simple identifiers/], [{ lines: { maxItems: 2, fields: ['constructor'] } }, /unique simple identifiers/],
+    [{ lines: { maxItems: 30, fields: ['a'] } }, /from 1 to 20/], [{ lines: { fields: ['a'] } }, /integer/], [{ lines: { maxItems: 2, fields: ['a'], extra: 1 } }, /Unknown option for lines: extra/],
+    [{ lines: 'ten' }, /maximum length, or/]]) {
+    assert.throws(() => normalizeSpec({ ...base, lists }), message, JSON.stringify(lists));
+  }
 });
 
 test('tautologies still enforce field formats', () => {

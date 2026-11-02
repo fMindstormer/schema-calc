@@ -6,9 +6,14 @@
     "subtotal"
   ],
   "lists": {
-    "lines": 4
+    "lines": {
+      "maxItems": 4,
+      "fields": [
+        "amount"
+      ]
+    }
   },
   "constraints": [
-    "sum(lines) = subtotal"
+    "sum(lines.amount) = subtotal"
   ]
 }

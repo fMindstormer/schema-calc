@@ -114,12 +114,15 @@ worker.onmessage = ({ data }) => {
   }
 };
 worker.onerror = () => { setState('error', 'Validator could not start', 'Reload the page. If this persists, run npm run build again.'); disableDownload(); };
+// One line per list item keeps the whole record in view; the record itself stays expanded.
+const formatRecord = record => JSON.stringify(record, null, 2)
+  .replace(/(\n\s+)\{\n\s+([^{}[\]]*?)\n\s+\}/g, (_, indent, body) => `${indent}{ ${body.replace(/\n\s*/g, ' ')} }`);
 function loadPreset(name) {
   selected = name;
   const preset = presets[name];
   // Keep the equation visible without scrolling inside the source editor.
   $('contract').value = JSON.stringify(preset.spec, null, 2).replace(/\[\n\s+([^\]]+)\n\s+\]/g, (_, items) => `[${items.replace(/\n\s*/g, ' ')}]`);
-  $('record').value = JSON.stringify(preset.valid, null, 2);
+  $('record').value = formatRecord(preset.valid);
   $('tamper').textContent = preset.tamper.label;
   document.querySelectorAll('[data-preset]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.preset === name)));
   clearTimeout(timer); run();
@@ -136,7 +139,7 @@ $('encoding').addEventListener('change', () => {
 $('tamper').addEventListener('click', () => {
   const { record } = tamperResult();
   if (!record) return;
-  $('record').value = JSON.stringify(record, null, 2); clearTimeout(timer); run();
+  $('record').value = formatRecord(record); clearTimeout(timer); run();
 });
 $('reset').addEventListener('click', () => loadPreset(selected));
 function save(value, name, type) {

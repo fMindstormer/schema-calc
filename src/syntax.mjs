@@ -9,7 +9,29 @@ function requireInteger(value, min, max, label) {
   }
 }
 
-export const MAX_LISTS = 2, MAX_ITEMS = 20;
+export const MAX_LISTS = 2, MAX_ITEMS = 20, MAX_ITEM_FIELDS = 4;
+
+// A list holds amounts ("lines": 10), or objects with named amount fields
+// ("lines": {"maxItems": 10, "fields": ["amount"]}) and any other properties.
+function normalizeList(name, value) {
+  if (typeof value === 'number') {
+    requireInteger(value, 1, MAX_ITEMS, `The maximum length of ${name}`);
+    return { maxItems: value, fields: null };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${name} must be a maximum length, or {"maxItems": n, "fields": [...]} for a list of objects.`);
+  }
+  for (const key of Object.keys(value)) if (key !== 'maxItems' && key !== 'fields') throw new Error(`Unknown option for ${name}: ${key}`);
+  requireInteger(value.maxItems, 1, MAX_ITEMS, `The maximum length of ${name}`);
+  const { fields } = value;
+  if (!Array.isArray(fields) || fields.length < 1 || fields.length > MAX_ITEM_FIELDS) {
+    throw new Error(`Give the items of ${name} between 1 and ${MAX_ITEM_FIELDS} amount fields.`);
+  }
+  if (fields.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f)) || new Set(fields).size !== fields.length) {
+    throw new Error(`The fields of ${name} must be unique simple identifiers.`);
+  }
+  return { maxItems: value.maxItems, fields: [...fields] };
+}
 
 export function normalizeSpec(spec) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('Expected a specification object.');
@@ -19,7 +41,6 @@ export function normalizeSpec(spec) {
   requireInteger(integerDigits, 1, 10, 'integerDigits');
   requireInteger(scale, 0, 4, 'scale');
   if (integerDigits + scale > 12) throw new Error('At most 12 decimal digits are supported.');
-  // A list is an array of amounts with a declared maximum length, summed with sum(name).
   if (!lists || typeof lists !== 'object' || Array.isArray(lists)) throw new Error('lists must map each list name to its maximum length.');
   const listNames = Object.keys(lists);
   if (listNames.length > MAX_LISTS) throw new Error(`Declare at most ${MAX_LISTS} lists.`);
@@ -27,16 +48,17 @@ export function normalizeSpec(spec) {
   const names = [...fields, ...listNames];
   if (names.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f))) throw new Error('Fields and lists must be simple identifiers; reserved object names are disallowed.');
   if (new Set(names).size !== names.length) throw new Error('Field and list names must be unique.');
-  for (const name of listNames) requireInteger(lists[name], 1, MAX_ITEMS, `The maximum length of ${name}`);
   if (!Array.isArray(constraints) || constraints.length < 1 || constraints.length > 8) throw new Error('Declare between 1 and 8 equations.');
   if (typeof title !== 'string' || title.length > 200) throw new Error('title must be a string of at most 200 characters.');
-  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, lists[name]])), constraints: [...constraints], integerDigits, scale, title };
+  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, normalizeList(name, lists[name])])), constraints: [...constraints], integerDigits, scale, title };
 }
 
-/** The variables a constraint can read: each field, then each list position, as list[index]. */
+/** The variables a constraint can read: each field, then each list position, as
+ * list[index], or list[index].field for a list of objects.
+ */
 export function variables(spec) {
-  return [...spec.fields, ...Object.entries(spec.lists).flatMap(([name, length]) =>
-    Array.from({ length }, (_, index) => `${name}[${index}]`))];
+  return [...spec.fields, ...Object.entries(spec.lists).flatMap(([name, { maxItems, fields }]) =>
+    Array.from({ length: maxItems }, (_, index) => fields ? fields.map(f => `${name}[${index}].${f}`) : [`${name}[${index}]`]).flat())];
 }
 
 export const MAX_COEFFICIENT = 1000;
@@ -57,22 +79,27 @@ const RELATIONS = new Set(['=', '<=', '>=', '<', '>']);
  */
 export function parseConstraint(source, spec) {
   if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
-  const tokens = (source.match(/sum\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)|[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [])
+  const tokens = (source.match(/sum\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?\s*\)|[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [])
     .map(token => token.startsWith('sum') ? token.replace(/\s+/g, '') : token);
   let cursor = 0, termCount = 0, constant = 0n;
   const coefficients = new Map(variables(spec).map(name => [name, 0]));
-  // A field, or sum(list): every position of the list, each a variable of its own.
-  const SUM = /^sum\(([A-Za-z_][A-Za-z0-9_]*)\)$/;
+  // A field, or sum(list) or sum(list.field): every position of the list, each a variable of its own.
+  const SUM = /^sum\(([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?\)$/;
   const operand = token => IDENTIFIER.test(token) || SUM.test(token);
+  const summed = list => spec.lists[list].fields ? `sum(${list}.${spec.lists[list].fields[0]})` : `sum(${list})`;
   function read(token) {
-    const list = SUM.exec(token)?.[1];
-    if (list === undefined) {
-      if (Object.hasOwn(spec.lists, token)) throw new Error(`${token} is a list; write sum(${token}).`);
+    const match = SUM.exec(token);
+    if (!match) {
+      if (Object.hasOwn(spec.lists, token)) throw new Error(`${token} is a list; write ${summed(token)}.`);
       if (!spec.fields.includes(token)) throw new Error(`Unknown field: ${token}`);
       return [token];
     }
+    const [, list, field] = match;
     if (!Object.hasOwn(spec.lists, list)) throw new Error(`Unknown list: ${list}`);
-    return Array.from({ length: spec.lists[list] }, (_, index) => `${list}[${index}]`);
+    const { maxItems, fields } = spec.lists[list];
+    if (Boolean(fields) !== (field !== undefined)) throw new Error(`${list} holds ${fields ? 'objects' : 'amounts'}; write ${summed(list)}.`);
+    if (fields && !fields.includes(field)) throw new Error(`Unknown field of ${list}: ${field}`);
+    return Array.from({ length: maxItems }, (_, index) => field === undefined ? `${list}[${index}]` : `${list}[${index}].${field}`);
   }
   function expression(side) {
     let sign = 1;

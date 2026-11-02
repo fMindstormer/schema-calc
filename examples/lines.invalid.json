@@ -1,8 +1,17 @@
 {
   "lines": [
-    "19.99",
-    "4.95",
-    "0.06"
+    {
+      "description": "Notebook",
+      "amount": "19.99"
+    },
+    {
+      "description": "Pens",
+      "amount": "4.95"
+    },
+    {
+      "description": "Stamp",
+      "amount": "0.06"
+    }
   ],
   "subtotal": "25.01"
 }

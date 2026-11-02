@@ -58,11 +58,11 @@ export const presets = {
       integerDigits: 4,
       scale: 2,
       fields: ['subtotal'],
-      lists: { lines: 4 },
-      constraints: ['sum(lines) = subtotal']
+      lists: { lines: { maxItems: 4, fields: ['amount'] } },
+      constraints: ['sum(lines.amount) = subtotal']
     },
-    valid: { lines: ['19.99', '4.95', '0.06'], subtotal: '25.00' },
-    invalid: { lines: ['19.99', '4.95', '0.06'], subtotal: '25.01' },
+    valid: { lines: [{ description: 'Notebook', amount: '19.99' }, { description: 'Pens', amount: '4.95' }, { description: 'Stamp', amount: '0.06' }], subtotal: '25.00' },
+    invalid: { lines: [{ description: 'Notebook', amount: '19.99' }, { description: 'Pens', amount: '4.95' }, { description: 'Stamp', amount: '0.06' }], subtotal: '25.01' },
     tamper: { label: 'Add one cent', field: 'subtotal', delta: '0.01' }
   }
 };
