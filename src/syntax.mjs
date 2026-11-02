@@ -9,20 +9,34 @@ function requireInteger(value, min, max, label) {
   }
 }
 
+export const MAX_LISTS = 2, MAX_ITEMS = 20;
+
 export function normalizeSpec(spec) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('Expected a specification object.');
-  const allowed = new Set(['fields', 'constraints', 'integerDigits', 'scale', 'title']);
+  const allowed = new Set(['fields', 'lists', 'constraints', 'integerDigits', 'scale', 'title']);
   for (const key of Object.keys(spec)) if (!allowed.has(key)) throw new Error(`Unknown specification option: ${key}`);
-  const { fields, constraints, integerDigits = 4, scale = 2, title = 'Arithmetic contract' } = spec;
+  const { fields, lists = {}, constraints, integerDigits = 4, scale = 2, title = 'Arithmetic contract' } = spec;
   requireInteger(integerDigits, 1, 10, 'integerDigits');
   requireInteger(scale, 0, 4, 'scale');
   if (integerDigits + scale > 12) throw new Error('At most 12 decimal digits are supported.');
-  if (!Array.isArray(fields) || fields.length < 1 || fields.length > 8) throw new Error('Declare between 1 and 8 fields.');
-  if (fields.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f))) throw new Error('Fields must be simple identifiers; reserved object names are disallowed.');
-  if (new Set(fields).size !== fields.length) throw new Error('Field names must be unique.');
+  // A list is an array of amounts with a declared maximum length, summed with sum(name).
+  if (!lists || typeof lists !== 'object' || Array.isArray(lists)) throw new Error('lists must map each list name to its maximum length.');
+  const listNames = Object.keys(lists);
+  if (listNames.length > MAX_LISTS) throw new Error(`Declare at most ${MAX_LISTS} lists.`);
+  if (!Array.isArray(fields) || fields.length > 8 || fields.length + listNames.length < 1) throw new Error('Declare at most 8 fields, and at least one field or list.');
+  const names = [...fields, ...listNames];
+  if (names.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f))) throw new Error('Fields and lists must be simple identifiers; reserved object names are disallowed.');
+  if (new Set(names).size !== names.length) throw new Error('Field and list names must be unique.');
+  for (const name of listNames) requireInteger(lists[name], 1, MAX_ITEMS, `The maximum length of ${name}`);
   if (!Array.isArray(constraints) || constraints.length < 1 || constraints.length > 8) throw new Error('Declare between 1 and 8 equations.');
   if (typeof title !== 'string' || title.length > 200) throw new Error('title must be a string of at most 200 characters.');
-  return { fields: [...fields], constraints: [...constraints], integerDigits, scale, title };
+  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, lists[name]])), constraints: [...constraints], integerDigits, scale, title };
+}
+
+/** The variables a constraint can read: each field, then each list position, as list[index]. */
+export function variables(spec) {
+  return [...spec.fields, ...Object.entries(spec.lists).flatMap(([name, length]) =>
+    Array.from({ length }, (_, index) => `${name}[${index}]`))];
 }
 
 export const MAX_COEFFICIENT = 1000;
@@ -43,9 +57,23 @@ const RELATIONS = new Set(['=', '<=', '>=', '<', '>']);
  */
 export function parseConstraint(source, spec) {
   if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
-  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [];
+  const tokens = (source.match(/sum\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)|[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [])
+    .map(token => token.startsWith('sum') ? token.replace(/\s+/g, '') : token);
   let cursor = 0, termCount = 0, constant = 0n;
-  const coefficients = new Map(spec.fields.map(f => [f, 0]));
+  const coefficients = new Map(variables(spec).map(name => [name, 0]));
+  // A field, or sum(list): every position of the list, each a variable of its own.
+  const SUM = /^sum\(([A-Za-z_][A-Za-z0-9_]*)\)$/;
+  const operand = token => IDENTIFIER.test(token) || SUM.test(token);
+  function read(token) {
+    const list = SUM.exec(token)?.[1];
+    if (list === undefined) {
+      if (Object.hasOwn(spec.lists, token)) throw new Error(`${token} is a list; write sum(${token}).`);
+      if (!spec.fields.includes(token)) throw new Error(`Unknown field: ${token}`);
+      return [token];
+    }
+    if (!Object.hasOwn(spec.lists, list)) throw new Error(`Unknown list: ${list}`);
+    return Array.from({ length: spec.lists[list] }, (_, index) => `${list}[${index}]`);
+  }
   function expression(side) {
     let sign = 1;
     if (tokens[cursor] === '+' || tokens[cursor] === '-') sign = tokens[cursor++] === '+' ? 1 : -1;
@@ -58,17 +86,16 @@ export function parseConstraint(source, spec) {
         const other = tokens[cursor + 1];
         cursor += 2;
         if (!other) throw new Error(`Missing term in equation: ${source}`);
-        if (IDENTIFIER.test(token) && IDENTIFIER.test(other)) throw new Error(`Fields cannot be multiplied together: ${token} * ${other}.`);
-        if (IDENTIFIER.test(token)) factor = coefficient(other);
+        if (operand(token) && operand(other)) throw new Error(`Fields cannot be multiplied together: ${token} * ${other}.`);
+        if (operand(token)) factor = coefficient(other);
         else [factor, token] = [coefficient(token), other];
-        if (!IDENTIFIER.test(token)) throw new Error(`Multiply a field by a whole number; found ${factor} * ${token}.`);
+        if (!operand(token)) throw new Error(`Multiply a field by a whole number; found ${factor} * ${token}.`);
         if (tokens[cursor] === '*') throw new Error('A term may have at most one coefficient.');
       }
-      if (IDENTIFIER.test(token)) {
-        if (!coefficients.has(token)) throw new Error(`Unknown field: ${token}`);
-        coefficients.set(token, coefficients.get(token) + side * sign * factor);
+      if (operand(token)) {
+        for (const name of read(token)) coefficients.set(name, coefficients.get(name) + side * sign * factor);
       } else if (/^[0-9]+(?:\.[0-9]+)?$/.test(token)) {
-        if (IDENTIFIER.test(tokens[cursor] ?? '')) throw new Error(`Write ${token} * ${tokens[cursor]} to multiply a field.`);
+        if (operand(tokens[cursor] ?? '')) throw new Error(`Write ${token} * ${tokens[cursor]} to multiply a field.`);
         const [whole, fraction = ''] = token.split('.');
         if (whole.length > spec.integerDigits || fraction.length > spec.scale) throw new Error(`Constant ${token} exceeds the declared precision.`);
         constant += BigInt(side * sign) * BigInt(whole + fraction.padEnd(spec.scale, '0'));

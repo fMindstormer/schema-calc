@@ -1,0 +1,14 @@
+{
+  "title": "Up to four line items add up to the subtotal",
+  "integerDigits": 4,
+  "scale": 2,
+  "fields": [
+    "subtotal"
+  ],
+  "lists": {
+    "lines": 4
+  },
+  "constraints": [
+    "sum(lines) = subtotal"
+  ]
+}

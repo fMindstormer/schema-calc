@@ -14,7 +14,8 @@ const corpus = [];
 const tallyCorpus = [];
 function contract(name, spec, { tally = true } = {}) {
   const { schema } = compile(spec);
-  const validator = new Ajv2020({ strict: true, inlineRefs: false }).compile(schema);
+  // List positions are partial prefixItems tuples, which Ajv's strictTuples refuses.
+  const validator = new Ajv2020({ strict: true, strictTuples: false, inlineRefs: false }).compile(schema);
   const group = { name, spec, schema, cases: [] };
   corpus.push(group);
   if (!tally) {
@@ -45,6 +46,7 @@ const money = (minor, scale = 2) => {
   const text = String(minor).padStart(scale + 1, '0');
   return scale ? `${text.slice(0, -scale)}.${text.slice(-scale)}` : text;
 };
+const amounts = values => values.map(value => money(value));
 let seed = 0x531ECA1C;
 function random(limit) {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -244,6 +246,87 @@ test('inequalities normalize to a sum at most zero', () => {
   assert.throws(() => parseEquation('a <= b', spec), /equality sign/);
 });
 
+test('lists sum their items, missing items count as zero', () => {
+  for (const length of [1, 2, 5, 8]) {
+    const check = contract(`list of ${length}`, { fields: ['subtotal'], lists: { lines: length }, constraints: ['sum(lines) = subtotal'], integerDigits: 4, scale: 2 }, { tally: false });
+    for (let i = 0; i < 120; i++) {
+      const count = i < length + 1 ? i : random(length + 1);
+      const lines = Array.from({ length: count }, () => BigInt(random(Math.floor(1000000 / length))));
+      const sum = lines.reduce((a, b) => a + b, 0n);
+      for (const subtotal of [sum, sum + 1n, sum - 1n, BigInt(random(1000000))]) {
+        if (subtotal >= 0n && subtotal < 1000000n) check({ lines: amounts(lines), subtotal: money(subtotal) }, subtotal === sum);
+      }
+    }
+  }
+});
+
+test('lists with coefficients, inequalities, other fields and each other', () => {
+  const invoice = contract('invoice lines', {
+    fields: ['subtotal', 'shipping', 'discount', 'total'], lists: { lines: 6 },
+    constraints: ['sum(lines) = subtotal', 'total = subtotal + shipping - discount', 'discount <= subtotal'], integerDigits: 4, scale: 2
+  }, { tally: false });
+  for (let i = 0; i < 200; i++) {
+    const lines = Array.from({ length: random(7) }, () => BigInt(random(150000)));
+    const sum = lines.reduce((a, b) => a + b, 0n), shipping = BigInt(random(5000)), discount = BigInt(random(i % 2 ? 20000 : 1000000));
+    const subtotal = i % 3 ? sum : sum + BigInt(random(3)) - 1n, total = subtotal + shipping - discount;
+    if (subtotal < 0n || subtotal >= 1000000n || total < 0n || total >= 1000000n) continue;
+    invoice({ lines: amounts(lines), subtotal: money(subtotal), shipping: money(shipping), discount: money(discount), total: money(total) },
+      subtotal === sum && discount <= subtotal);
+  }
+  const weighted = contract('weighted lists', { fields: ['limit'], lists: { a: 3, b: 3 }, constraints: ['2 * sum(a) <= sum(b) * 3 + limit'], integerDigits: 2, scale: 0 }, { tally: false });
+  for (let i = 0; i < 300; i++) {
+    // A small modulus of this generator repeats with a short period; reduce a prime one.
+    const a = Array.from({ length: random(997) % 4 }, () => BigInt(random(100))), b = Array.from({ length: random(997) % 4 }, () => BigInt(random(60)));
+    const total = list => list.reduce((x, y) => x + y, 0n), edge = 2n * total(a) - 3n * total(b) + BigInt(random(3)) - 1n;
+    const limit = i % 2 && edge >= 0n && edge < 100n ? edge : BigInt(random(100));
+    weighted({ a: a.map(String), b: b.map(String), limit: String(limit) }, 2n * total(a) <= 3n * total(b) + limit);
+  }
+  const balance = contract('balanced lists', { fields: [], lists: { debits: 4, credits: 4 }, constraints: ['sum(debits) = sum(credits)'], integerDigits: 3, scale: 2 }, { tally: false });
+  balance({ debits: ['100.00', '0.50'], credits: ['50.25', '50.25'] }, true);
+  balance({ debits: [], credits: [] }, true);
+  balance({ debits: ['0.01'], credits: [] }, false);
+  balance({ debits: ['999.99', '999.99', '999.99', '999.99'], credits: ['999.99', '999.99', '999.99', '999.99'] }, true);
+  balance({ debits: ['999.99', '999.99', '999.99', '999.99'], credits: ['999.99', '999.99', '999.99', '999.98'] }, false);
+});
+
+test('list records are checked like fields', () => {
+  const spec = { fields: ['subtotal'], lists: { lines: 3 }, constraints: ['sum(lines) = subtotal'], integerDigits: 4, scale: 2 };
+  const check = contract('list domain', spec, { tally: false });
+  check({ lines: ['1.00', '2.00', '3.00'], subtotal: '6.00' }, true);
+  check({ lines: [], subtotal: '0.00' }, true);
+  for (const lines of [['1.00', '2.00', '3.00', '0.00'], { 0: '6.00' }, '6.00', null, ['6.0'], [6], ['06.00'], ['6.00\n'], [null], [['6.00']]]) {
+    check({ lines, subtotal: '6.00' }, false);
+  }
+  check({ subtotal: '0.00' }, false);
+  check({ lines: [], subtotal: '0.00', extra: [] }, false);
+  // Ajv finds embedded resources with json-schema-traverse, which skips prefixItems.
+  for (const { name, schema } of corpus) {
+    JSON.stringify(schema, (key, value) => {
+      if (key === 'prefixItems') assert.ok(!JSON.stringify(value).includes('"$id"'), `${name} declares a resource under prefixItems`);
+      return value;
+    });
+  }
+  assert.throws(() => compileTally(spec), /tally encoding does not support lists/);
+});
+
+test('list syntax and declarations', () => {
+  const spec = normalizeSpec({ fields: ['total'], lists: { lines: 3 }, constraints: ['total = 0'] });
+  const terms = source => parseConstraint(source, spec).terms;
+  assert.deepEqual(terms('sum(lines) = total'), [['total', -1], ['lines[0]', 1], ['lines[1]', 1], ['lines[2]', 1]]);
+  assert.deepEqual(terms('2 * sum( lines ) = total'), terms('sum(lines) * 2 = total'));
+  assert.deepEqual(terms('sum(lines) - sum(lines) = total'), [['total', -1]]);
+  for (const [equation, message] of [['lines = total', /lines is a list; write sum\(lines\)/], ['sum(other) = total', /Unknown list: other/],
+    ['sum(total) = 0', /Unknown list: total/], ['sum(lines) * sum(lines) = 0', /cannot be multiplied/], ['sum(lines = total', /Unknown field: sum/]]) {
+    assert.throws(() => parseConstraint(equation, spec), message, equation);
+  }
+  const base = { fields: ['total'], constraints: ['total = 0'] };
+  for (const [lists, message] of [[{ lines: 0 }, /lines must be an integer from 1 to 20/], [{ lines: 21 }, /from 1 to 20/], [{ lines: 2.5 }, /integer/],
+    [{ total: 2 }, /unique/], [{ __proto__: null, ['__proto__']: 2 }, /reserved/], [{ a: 1, b: 1, c: 1 }, /at most 2 lists/], [[3], /map each list name/]]) {
+    assert.throws(() => normalizeSpec({ ...base, lists }), message, JSON.stringify(lists));
+  }
+  assert.throws(() => normalizeSpec({ fields: [], constraints: ['0 = 0'] }), /at least one field or list/);
+});
+
 test('tautologies still enforce field formats', () => {
   const check = contract('tautology', { fields: ['a'], constraints: ['a = a + 0'], integerDigits: 1, scale: 0 });
   check({ a: '0' }, true); check({ a: '9' }, true); check({ a: '10' }, false);
@@ -309,7 +392,8 @@ test('every reference resolves inside the self-contained standard schema documen
     const resources = schemaResources(schema);
     const uris = new Set(resources.map(r => r.uri));
     assert.equal(uris.size, resources.length, 'embedded resource identities are unique');
-    const keywords = new Set(['$schema', '$id', 'title', 'type', 'required', 'additionalProperties', 'properties', 'pattern', 'allOf', 'not', 'if', 'then', 'else', '$ref', '$comment', '$defs']);
+    const keywords = new Set(['$schema', '$id', 'title', 'type', 'required', 'additionalProperties', 'properties', 'pattern', 'allOf', 'not', 'if', 'then', 'else', '$ref', '$comment', '$defs',
+      'minItems', 'maxItems', 'items', 'prefixItems']);
     function walk(node, base = schema.$id) {
       if (typeof node === 'boolean') return;
       if (node.$id) base = new URL(node.$id, base).href;
@@ -320,8 +404,8 @@ test('every reference resolves inside the self-contained standard schema documen
           assert.ok(uri.startsWith(schema.$id));
           assert.ok(uris.has(uri), `unbundled reference ${uri}`);
         } else if (key === 'properties' || key === '$defs') Object.values(value).forEach(child => walk(child, base));
-        else if (key === 'allOf') value.forEach(child => walk(child, base));
-        else if (['not', 'if', 'then', 'else'].includes(key)) walk(value, base);
+        else if (key === 'allOf' || key === 'prefixItems') value.forEach(child => walk(child, base));
+        else if (['not', 'if', 'then', 'else', 'items'].includes(key)) walk(value, base);
       }
     }
     walk(schema);
@@ -344,7 +428,7 @@ test('flat schemas avoid regex lookaround and stay within parser depth and size 
   }
   for (const pattern of patterns) assert.doesNotMatch(pattern, /\(\?[=!<]/);
   const check = (group, schema) => {
-    const validate = new Ajv2020({ strict: true }).compile(schema);
+    const validate = new Ajv2020({ strict: true, strictTuples: false }).compile(schema);
     for (const { data, expected } of group.cases) assert.equal(validate(data), expected, `${group.name}: ${JSON.stringify(data)}`);
   };
   // A small limit moves many subschemas, including unshared ones, into $defs.

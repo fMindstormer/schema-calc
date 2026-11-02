@@ -4,7 +4,7 @@
 export const MAX_DEPTH = 32;
 // Ajv and schemasafe compile everything between two references into one function.
 // With 13,000 to 26,000 subschemas in such a region, Ajv's call stack overflowed
-// while validating some records; the shipped examples have at most 600.
+// while validating some records; the shipped examples have at most 629.
 export const MAX_SUBSCHEMAS = 2000;
 const SUBSCHEMA = new Set(['if', 'then', 'else', 'not']);
 const SUBSCHEMA_MAPS = new Set(['allOf', 'properties']);
@@ -37,7 +37,9 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX
     if (!names.has(id)) names.set(id, label(names.size));
     return names.get(id);
   }
-  function reference(id) {
+  // Ajv finds embedded resources with json-schema-traverse, which does not look
+  // inside prefixItems; a resource first used there is declared in root $defs.
+  function reference(id, hidden) {
     const key = name(id);
     if (emitted.has(id)) return { $ref: key };
     emitted.add(id);
@@ -47,24 +49,24 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX
     const resource = typeof body === 'boolean' || Object.hasOwn(body, '$id')
       ? { $id: key, allOf: [body] }
       : { $id: key, ...body };
-    if (layout === 'embedded') return resource;
+    if (layout === 'embedded' && !hidden) return resource;
     // The body is emitted first, so dependencies precede their dependents.
     declared[key] = resource;
     return { $ref: key };
   }
-  function emit(value) {
+  function emit(value, hidden = false) {
     if (!value || typeof value !== 'object') return value;
-    if (Array.isArray(value)) return value.map(emit);
+    if (Array.isArray(value)) return value.map(child => emit(child, hidden));
     if (value.$ref) {
-      const target = reference(value.$ref.slice('#/$defs/'.length));
+      const target = reference(value.$ref.slice('#/$defs/'.length), hidden);
       const siblings = Object.fromEntries(Object.entries(value)
-        .filter(([key]) => key !== '$ref').map(([key, child]) => [key, emit(child)]));
+        .filter(([key]) => key !== '$ref').map(([key, child]) => [key, emit(child, hidden)]));
       // $ref siblings conjoin in Draft 2020-12. Keep their lexical scope intact.
       return Object.keys(siblings).length
         ? { ...siblings, allOf: [...(siblings.allOf ?? []), target] }
         : target;
     }
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, emit(child)]));
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, emit(child, hidden || key === 'prefixItems')]));
   }
   const { $defs, ...root } = graph;
   // A deterministic document namespace avoids ordinary collisions when several

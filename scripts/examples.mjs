@@ -18,6 +18,8 @@ for (const [name, preset] of Object.entries(presets)) {
     await emit(`${name}.${suffix}`, value, suffix !== 'schema.json');
   }
   console.log(`${name}: ${stats.bytes} bytes, ${stats.decisionNodes} decision nodes, <=${stats.maxDigitTests} digit tests`);
+  // The tally encoding has no form for lists.
+  if (preset.spec.lists) continue;
   const tally = compileTally(preset.spec);
   for (const [suffix, value] of Object.entries({ 'schema': tally.schema, 'valid': encodeTally(preset.spec, preset.valid), 'invalid': encodeTally(preset.spec, preset.invalid) })) {
     await emit(`${name}.tally.${suffix}.json`, value);

@@ -12,6 +12,8 @@ export const MAX_TALLY_COPIES = 16;
 
 function layout(input) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
+  // A list's length varies, while every tally column has a fixed set of blocks.
+  if (Object.keys(spec.lists).length) throw new Error('The tally encoding does not support lists; use the flat encoding.');
   const equations = spec.constraints.map(source => parseConstraint(source, spec));
   let next = 1;
   const fields = spec.fields.map(name => {

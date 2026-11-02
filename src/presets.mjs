@@ -50,6 +50,20 @@ export const presets = {
     valid: { total: '100.00', share: '33.33' },
     invalid: { total: '100.00', share: '33.34' },
     tamper: { label: 'Add one cent', field: 'share', delta: '0.01' }
+  },
+  lines: {
+    label: 'Line items',
+    spec: {
+      title: 'Up to four line items add up to the subtotal',
+      integerDigits: 4,
+      scale: 2,
+      fields: ['subtotal'],
+      lists: { lines: 4 },
+      constraints: ['sum(lines) = subtotal']
+    },
+    valid: { lines: ['19.99', '4.95', '0.06'], subtotal: '25.00' },
+    invalid: { lines: ['19.99', '4.95', '0.06'], subtotal: '25.01' },
+    tamper: { label: 'Add one cent', field: 'subtotal', delta: '0.01' }
   }
 };
 

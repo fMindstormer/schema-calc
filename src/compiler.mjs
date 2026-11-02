@@ -52,7 +52,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       if (!strings.has(stringKey)) {
         strings.set(stringKey, add({ type: 'string', pattern: pattern(position, mask, spec.scale) }));
       }
-      predicates.set(key, add({ type: 'object', properties: { [field]: ref(strings.get(stringKey)) } }));
+      // A list position is reached through prefixItems. minItems makes a missing
+      // item fail the nonzero-digit test, exactly as a zero would.
+      const [, list, index] = /^(.+)\[(\d+)\]$/.exec(field) ?? [];
+      const test = ref(strings.get(stringKey));
+      predicates.set(key, add({ type: 'object', properties: list === undefined ? { [field]: test }
+        : { [list]: { type: 'array', minItems: Number(index) + 1, prefixItems: [...Array(Number(index)).fill(true), test] } } }));
     }
     return predicates.get(key);
   }
@@ -206,8 +211,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   const graph = {
     $schema: DRAFT,
     title: spec.title,
-    type: 'object', required: spec.fields, additionalProperties: false,
-    properties: Object.fromEntries(spec.fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
+    type: 'object', required: [...spec.fields, ...Object.keys(spec.lists)], additionalProperties: false,
+    properties: {
+      ...Object.fromEntries(spec.fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
+      ...Object.fromEntries(Object.entries(spec.lists).map(([name, maxItems]) =>
+        [name, { type: 'array', maxItems, items: amountSchema(spec.integerDigits, spec.scale) }]))
+    },
     allOf: roots.map(emit),
     $defs: Object.fromEntries([...definitions]
       .filter(([key]) => live.has(key) && !inline.has(key))

@@ -54,11 +54,13 @@ const allRunners = [
 ];
 const runners = allRunners.filter(runner => !only || only.includes(runner.id));
 
-// The six schemas a visitor downloads, with the records shipped beside them.
+// The schemas a visitor downloads, with the records shipped beside them. Lists
+// have no tally form.
 mkdirSync(scratch, { recursive: true });
 const examples = [];
-for (const name of ['invoice', 'allocation', 'carry', 'split']) {
+for (const name of ['invoice', 'allocation', 'carry', 'split', 'lines']) {
   for (const tally of [false, true]) {
+    if (tally && !existsSync(`${root}examples/${name}.tally.schema.json`)) continue;
     const file = suffix => JSON.parse(readFileSync(`${root}examples/${name}${tally ? '.tally' : ''}.${suffix}.json`, 'utf8'));
     examples.push({ name: `${name}${tally ? ' (tally)' : ''}`, schema: file('schema'), cases: [
       { data: file('valid'), expected: true }, { data: file('invalid'), expected: false }] });
