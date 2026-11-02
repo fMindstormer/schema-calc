@@ -27,7 +27,7 @@ JSON Schema has no built-in operator for adding values from different properties
 
 The example schema is **41,364 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
-**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.2.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.2.0)**: the invoice schema, both records and a standalone Python validator.
+**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.3.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.3.0)**: the invoice schema, both records and a standalone Python validator.
 
 [One cent, two validators](#one-cent-two-validators) · [Computational model](#the-computational-model) · [Compression](#where-the-compression-comes-from) · [Verification](#verification) · [Research notes](#explore-the-project)
 
@@ -51,7 +51,7 @@ You need Python 3 and `jsonschema` 4.25.1; not Node, and not this repository:
 
 ```sh
 python3 -m pip install jsonschema==4.25.1
-base=https://github.com/fMindstormer/schema-calc/releases/download/v0.2.0
+base=https://github.com/fMindstormer/schema-calc/releases/download/v0.3.0
 for f in validate.py invoice.schema.json invoice.valid.json invoice.invalid.json; do curl -fLO "$base/$f"; done
 python3 validate.py invoice.schema.json invoice.valid.json invoice.invalid.json
 ```
@@ -140,7 +140,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
 
-All declared fields are required and extra properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Lists grow roughly with the square of their length, since every position is another digit to add in each column: `sum(lines) = subtotal` at the same precision is 9 kB for one line, 72 kB for 4, 386 kB for 10 and 1.4 MB for 20. Lines that are objects with an `amount` field cost 3–17% more. Nested objects, arrays and custom arithmetic error messages are outside the current compiler.
+All declared fields and lists are required, and extra top-level properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Lists grow roughly with the square of their length, since every position is another digit to add in each column: `sum(lines) = subtotal` at the same precision is 9 kB for one line, 72 kB for 4, 386 kB for 10 and 1.4 MB for 20. Lines that are objects with an `amount` field cost 3–17% more. Nested objects other than list items, and custom arithmetic error messages, are outside the current compiler.
 
 ## The computational model
 
