@@ -11,7 +11,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Python's lazily built validators spend 8 to 13 minutes on the flat corpus here.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -30,8 +31,11 @@ jobs:
       - run: .venv/bin/python -m pip install -r requirements-test.txt
       - run: npm test
       - run: npm run check:examples
-      - run: npm run check:python
-      - run: npm run check:tally
+      # The corpora are deterministic, so one Node version's copy suffices for Python.
+      - if: matrix.node == '24'
+        run: npm run check:python
+      - if: matrix.node == '24'
+        run: npm run check:tally
       - run: npm run demo
       - run: .venv/bin/python examples/validate.py
       - run: npm run build
