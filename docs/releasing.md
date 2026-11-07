@@ -27,25 +27,28 @@ Extract it into an empty directory and run `npm ci`, `npm run demo`, `npm test`,
 
 ## GitHub
 
-The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/schema-calc). Three workflows run there:
+The repository is [fMindstormer/schema-calc](https://github.com/fMindstormer/schema-calc). Four workflows run there:
 
 - **Verify schemas** (`.github/workflows/ci.yml`) runs the Node and Python suites, the examples, the build and the browser handoff check on every push and pull request, with read-only permissions.
 - **Validator compatibility** (`.github/workflows/compat.yml`) runs every runner in [`compat/`](../compat/README.md) when the compiler, examples or harness change, and fails on any wrong answer.
+- **Release links** (`.github/workflows/release-links.yml`) runs `npm run check:releases` on `main`, on pull requests, when a release is published and daily. It fails when a release the README links is missing or a draft, or lacks a file the README downloads from it.
 - **Pages** (`.github/workflows/pages.yml`) builds the playground from `main` and publishes `dist/` to [fmindstormer.github.io/schema-calc](https://fmindstormer.github.io/schema-calc/). It needs Settings > Pages > Source set to GitHub Actions once.
 
-To release, tag the verified commit. Attach the archive and its checksum, plus the files the README's no-clone instructions download, so they work without the repository:
+The README's download links name the release, so the release commit links a release that does not exist yet, and Release links fails on `main` until it does. Verify the commit on a branch, publish the release from it, and only then move `main` to it. Attach the archive and its checksum, plus the files the README's no-clone instructions download, so they work without the repository:
 
 ```sh
 v=$(node -p 'require("./package.json").version')
+git push origin HEAD:refs/heads/release-$v   # wait for Verify schemas to pass
 (cd releases && cp ../examples/invoice.schema.json ../examples/invoice.valid.json ../examples/invoice.invalid.json ../examples/validate.py . \
   && shasum -a 256 schema-calc-$v.zip invoice.schema.json invoice.valid.json invoice.invalid.json validate.py > SHA256SUMS)
 git tag v$v && git push origin v$v
 gh release create v$v --title "schema-calc v$v" --notes-file releases/notes.md \
   releases/schema-calc-$v.zip releases/schema-calc-$v.zip.sha256 releases/SHA256SUMS \
   releases/invoice.schema.json releases/invoice.valid.json releases/invoice.invalid.json releases/validate.py
+npm run check:releases && git push origin HEAD:main && git push origin --delete release-$v
 ```
 
-`releases/notes.md` is the release description; the folder is ignored by Git. The README's download links name the release, so update them with the version. Then run the README's "Reproduce it without cloning" commands in an empty directory.
+`releases/notes.md` is the release description; the folder is ignored by Git. Then run the README's "Reproduce it without cloning" commands in an empty directory.
 
 If the playground's behaviour changed, rerecord the README demonstration with `npm run demo:record` (needs ffmpeg and ImageMagick) and look at `docs/demo.gif` before committing it.
 

@@ -1,0 +1,32 @@
+name: Release links
+
+# The README links a release and downloads files from it. Fail when that release
+# is missing, still a draft, or lacks one of the files. A release branch links a
+# release that is published only after it passes, so this runs on main, on pull
+# requests, when a release is published, and daily in case one is removed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Check every release the README links
+        run: npm run check:releases
+        env:
+          GH_TOKEN: ${{ github.token }}
