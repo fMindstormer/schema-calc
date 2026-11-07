@@ -9,7 +9,7 @@ function requireInteger(value, min, max, label) {
   }
 }
 
-export const MAX_LISTS = 2, MAX_ITEMS = 20, MAX_ITEM_FIELDS = 4;
+export const MAX_FIELDS = 16, MAX_LISTS = 2, MAX_ITEMS = 20, MAX_ITEM_FIELDS = 4;
 
 // A list holds amounts ("lines": 10), or objects with named amount fields
 // ("lines": {"maxItems": 10, "fields": ["amount"]}) and any other properties.
@@ -35,22 +35,28 @@ function normalizeList(name, value) {
 
 export function normalizeSpec(spec) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('Expected a specification object.');
-  const allowed = new Set(['fields', 'lists', 'constraints', 'integerDigits', 'scale', 'title']);
+  const allowed = new Set(['fields', 'lists', 'constraints', 'integerDigits', 'scale', 'signed', 'optional', 'title']);
   for (const key of Object.keys(spec)) if (!allowed.has(key)) throw new Error(`Unknown specification option: ${key}`);
-  const { fields, lists = {}, constraints, integerDigits = 4, scale = 2, title = 'Arithmetic contract' } = spec;
+  const { fields, lists = {}, constraints, integerDigits = 4, scale = 2, signed = false, optional = [], title = 'Arithmetic contract' } = spec;
   requireInteger(integerDigits, 1, 10, 'integerDigits');
   requireInteger(scale, 0, 4, 'scale');
   if (integerDigits + scale > 12) throw new Error('At most 12 decimal digits are supported.');
   if (!lists || typeof lists !== 'object' || Array.isArray(lists)) throw new Error('lists must map each list name to its maximum length.');
   const listNames = Object.keys(lists);
   if (listNames.length > MAX_LISTS) throw new Error(`Declare at most ${MAX_LISTS} lists.`);
-  if (!Array.isArray(fields) || fields.length > 8 || fields.length + listNames.length < 1) throw new Error('Declare at most 8 fields, and at least one field or list.');
+  if (!Array.isArray(fields) || fields.length > MAX_FIELDS || fields.length + listNames.length < 1) throw new Error(`Declare at most ${MAX_FIELDS} fields, and at least one field or list.`);
   const names = [...fields, ...listNames];
   if (names.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f))) throw new Error('Fields and lists must be simple identifiers; reserved object names are disallowed.');
   if (new Set(names).size !== names.length) throw new Error('Field and list names must be unique.');
   if (!Array.isArray(constraints) || constraints.length < 1 || constraints.length > 8) throw new Error('Declare between 1 and 8 equations.');
   if (typeof title !== 'string' || title.length > 200) throw new Error('title must be a string of at most 200 characters.');
-  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, normalizeList(name, lists[name])])), constraints: [...constraints], integerDigits, scale, title };
+  if (typeof signed !== 'boolean') throw new Error('signed must be true or false.');
+  // An optional field may be absent, and then counts as zero.
+  if (!Array.isArray(optional) || optional.some(f => !fields.includes(f)) || new Set(optional).size !== optional.length) {
+    throw new Error('optional must list declared fields, each once.');
+  }
+  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, normalizeList(name, lists[name])])), constraints: [...constraints], integerDigits, scale,
+    ...(signed && { signed }), ...(optional.length && { optional: [...optional] }), title };
 }
 
 /** The variables a constraint can read: each field, then each list position, as
@@ -181,16 +187,17 @@ export function parseEquation(source, spec) {
 // (?![\s\S]) is an absolute end assertion in both ECMAScript and Python regexes;
 // Python's bare $ also matches before a final newline. Schemas use amountSchema.
 const END = '(?![\\s\\S])';
-export function amountPattern(integerDigits, scale, end = END) {
+export function amountPattern(integerDigits, scale, end = END, signed = false) {
   const whole = integerDigits === 1 ? '[0-9]' : `(?:0|[1-9][0-9]{0,${integerDigits - 1}})`;
-  return `^${whole}${scale ? `\\.[0-9]{${scale}}` : ''}${end}`;
+  return `^${signed ? '-?' : ''}${whole}${scale ? `\\.[0-9]{${scale}}` : ''}${end}`;
 }
 
 /** The same format as schema keywords that every common regex dialect reads alike.
  * Go's RE2 has no lookahead. Python, Java and .NET let $ match before a final line
- * terminator, so a second pattern rejects any character but digits and the point.
+ * terminator, so a second pattern rejects any character but digits and the point,
+ * and the minus sign of a signed amount.
  */
-export function amountSchema(integerDigits, scale) {
-  return { type: 'string', pattern: amountPattern(integerDigits, scale, '$'), not: { pattern: '[^.0-9]' } };
+export function amountSchema(integerDigits, scale, signed = false) {
+  return { type: 'string', pattern: amountPattern(integerDigits, scale, '$', signed), not: { pattern: signed ? '[^-.0-9]' : '[^.0-9]' } };
 }
 

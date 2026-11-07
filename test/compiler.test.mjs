@@ -390,6 +390,82 @@ test('constraints on each line hold for every line, however long the list', () =
   ledger({ debits: entries(['600.00']), credits: entries(['600.00']) }, false);
 });
 
+const signedMoney = (minor, scale = 2) => (minor < 0n ? '-' : '') + money(minor < 0n ? -minor : minor, scale);
+
+test('signed amounts: exhaustive one-digit sums and an oracle for inequalities', () => {
+  const sum = contract('signed one-digit sums', { fields: ['a', 'b', 'c'], constraints: ['a + b = c'], integerDigits: 1, scale: 0, signed: true }, { tally: false });
+  for (let a = -9; a <= 9; a++) for (let b = -9; b <= 9; b++) for (let c = -9; c <= 9; c++) {
+    sum({ a: signedMoney(BigInt(a), 0), b: signedMoney(BigInt(b), 0), c: signedMoney(BigInt(c), 0) }, a + b === c);
+  }
+  sum({ a: '-0', b: '0', c: '-0' }, true);
+  const range = 1000000n, draw = () => BigInt(random(2000000)) - range + 1n;
+  const bound = contract('signed bounds', { fields: ['a', 'b', 'c'], constraints: ['3 * a - b <= c + 0.50', 'a > -100.00'], integerDigits: 4, scale: 2, signed: true }, { tally: false });
+  for (let i = 0; i < 300; i++) {
+    const a = draw(), b = draw(), edge = 3n * a - b - 50n + BigInt(random(3)) - 1n;
+    const c = i % 2 && edge > -range && edge < range ? edge : draw();
+    bound({ a: signedMoney(a), b: signedMoney(b), c: signedMoney(c) }, 3n * a - b <= c + 50n && a > -10000n);
+  }
+  for (const value of ['--1.00', '-', '+1.00', '1.00-', ' -1.00', '-01.00', '- 1.00', '-1.00\n', '-.50', '-1.0', '-10000.00', '−1.00']) {
+    bound({ a: value, b: '0.00', c: '0.00' }, false);
+  }
+});
+
+test('optional fields count as zero when absent', () => {
+  const check = contract('optional terms', { fields: ['due', 'total', 'paid', 'rounding'], optional: ['paid', 'rounding'], integerDigits: 4, scale: 2, signed: true,
+    constraints: ['due = total - paid + rounding'] }, { tally: false });
+  for (let i = 0; i < 200; i++) {
+    const total = BigInt(random(1000000)), paid = BigInt(random(4) ? 0 : random(1000000)), rounding = BigInt(random(5)) - 2n;
+    const record = { total: signedMoney(total) };
+    // An absent term and an explicit zero mean the same.
+    if (paid || random(2)) record.paid = signedMoney(paid);
+    if (rounding || random(2)) record.rounding = signedMoney(rounding);
+    const right = total - paid + rounding, due = i % 3 ? right : right + BigInt(random(3)) - 1n;
+    if (due > -1000000n && due < 1000000n) check({ ...record, due: signedMoney(due) }, due === right);
+  }
+  check({ total: '1.00', due: '1.00' }, true);
+  check({ total: '1.00' }, false);
+  check({ total: '1.00', due: '1.00', paid: null }, false);
+  check({ total: '1.00', due: '1.00', paid: '0.0' }, false);
+  check({ total: '1.00', due: '1.00', extra: '0.00' }, false);
+  const unsigned = contract('optional without signs', { fields: ['a', 'b'], optional: ['b'], integerDigits: 2, scale: 0, constraints: ['a >= b + 1'] }, { tally: false });
+  for (let a = 0; a < 100; a += 7) for (const b of [undefined, a - 1, a]) if (b === undefined || b >= 0) {
+    unsigned(b === undefined ? { a: String(a) } : { a: String(a), b: String(b) }, a >= (b ?? 0) + 1);
+  }
+});
+
+test('signed lists, sums and constraints on each line', () => {
+  const ledger = contract('signed lines', { fields: ['total'], lists: { lines: { maxItems: 4, fields: ['net', 'tax', 'amount'] } }, integerDigits: 3, scale: 2, signed: true,
+    constraints: ['lines.amount = lines.net + lines.tax', 'sum(lines.amount) = total'] }, { tally: false });
+  for (let i = 0; i < 60; i++) {
+    const items = Array.from({ length: random(997) % 5 }, () => {
+      const net = BigInt(random(60000)) - 30000n, tax = BigInt(random(6000)) - 3000n;
+      return { net, tax, amount: net + tax };
+    });
+    if (items.length && i % 3 === 0) items[random(items.length)].tax += 1n;
+    const sum = items.reduce((a, { amount }) => a + amount, 0n), each = items.every(({ net, tax, amount }) => amount === net + tax);
+    const record = items.map(({ net, tax, amount }) => ({ net: signedMoney(net), tax: signedMoney(tax), amount: signedMoney(amount) }));
+    for (const total of i % 2 ? [sum] : [sum, sum - 1n]) ledger({ lines: record, total: signedMoney(total) }, each && total === sum);
+  }
+});
+
+test('signed and optional declarations', () => {
+  const base = { fields: ['a', 'b'], constraints: ['a = b'] };
+  for (const [extra, message] of [[{ signed: 'yes' }, /signed must be true or false/], [{ optional: ['c'] }, /optional must list declared fields/],
+    [{ optional: ['a', 'a'] }, /each once/], [{ optional: 'a' }, /optional must list/], [{ lists: { lines: 2 }, optional: ['lines'] }, /optional must list declared fields/]]) {
+    assert.throws(() => normalizeSpec({ ...base, ...extra }), message, JSON.stringify(extra));
+  }
+  assert.deepEqual(normalizeSpec(base), normalizeSpec({ ...base, signed: false, optional: [] }));
+  const many = Array.from({ length: 17 }, (_, i) => `f${i}`);
+  assert.equal(normalizeSpec({ fields: many.slice(0, 16), constraints: ['f0 = f15'] }).fields.length, 16);
+  assert.throws(() => normalizeSpec({ fields: many, constraints: ['f0 = f16'] }), /at most 16 fields/);
+  assert.throws(() => compile(presets.invoice.spec, { maxDefinitions: 100 }), /exceeded the 100 definition limit/);
+  assert.throws(() => compileTally({ ...base, signed: true }), /tally encoding does not support signed amounts/);
+  assert.throws(() => compileTally({ ...base, optional: ['b'] }), /tally encoding does not support optional fields/);
+  const { schema } = compile({ ...base, optional: ['b'], signed: true });
+  assert.deepEqual(schema.required, ['a']);
+  assert.match(schema.properties.a.pattern, /^\^-\?/);
+});
+
 test('list syntax and declarations', () => {
   const spec = normalizeSpec({ fields: ['total'], lists: { lines: 3 }, constraints: ['total = 0'] });
   const terms = source => parseConstraint(source, spec).terms;

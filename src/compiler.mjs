@@ -25,14 +25,14 @@ function pattern(position, mask, scale) {
   return `${digitClass(mask)}${suffix}$`;
 }
 
-export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, layout = 'embedded' } = {}) {
+export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, maxDefinitions = MAX_DEFINITIONS, layout = 'embedded' } = {}) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
   const equations = spec.constraints.map(source => parseConstraint(source, spec));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
   let count = 0, states = 0;
   const ref = id => typeof id === 'boolean' ? id : { $ref: `#/$defs/${id}` };
   function add(schema) {
-    if (definitions.size >= MAX_DEFINITIONS) throw new Error(`Compilation exceeded the ${MAX_DEFINITIONS} definition limit.`);
+    if (definitions.size >= maxDefinitions) throw new Error(`Compilation exceeded the ${maxDefinitions} definition limit.`);
     // Alphabetic IDs preserve insertion order in JSON objects. Dependencies are
     // inserted before their parents, allowing bottom-up validator preparation.
     let n = count++, key = '';
@@ -43,34 +43,39 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     definitions.set(key, schema);
     return key;
   }
-  const strings = new Map();
-  function predicate(field, position, mask) {
-    const key = `${field}:${position}:${mask}`;
+  const strings = new Map(), optional = new Set(spec.optional);
+  // Apply a string test to one variable: a field, a list position or a line's field.
+  function predicate(field, stringKey, string) {
+    const key = `${field}:${stringKey}`;
     if (!predicates.has(key)) {
-      const stringKey = `${position}:${mask}`;
-      // Share the string-level digit test even when it is applied to different fields.
-      if (!strings.has(stringKey)) {
-        strings.set(stringKey, add({ type: 'string', pattern: pattern(position, mask, spec.scale) }));
-      }
+      // Share the string-level test even when it is applied to different fields.
+      if (!strings.has(stringKey)) strings.set(stringKey, add(string()));
       // A list position is reached through prefixItems. minItems makes a missing
-      // item fail the nonzero-digit test, exactly as a zero would.
+      // item fail the nonzero-digit test, exactly as a zero would; required does the
+      // same for an absent optional field.
       const [, list, index, member] = /^(.+?)\[(\d+)\](?:\.(.+))?$/.exec(field) ?? [];
       const test = ref(strings.get(stringKey));
       const item = member === undefined ? test : { type: 'object', properties: { [member]: test } };
-      predicates.set(key, add({ type: 'object', properties: list === undefined ? { [field]: test }
+      predicates.set(key, add({ type: 'object', ...(optional.has(field) && { required: [field] }), properties: list === undefined ? { [field]: test }
         : { [list]: { type: 'array', minItems: Number(index) + 1, prefixItems: [...Array(Number(index)).fill(true), item] } } }));
     }
     return predicates.get(key);
   }
+  const digitTest = (field, position, mask) => predicate(field, `${position}:${mask}`, () => ({ type: 'string', pattern: pattern(position, mask, spec.scale) }));
+  const signTest = field => predicate(field, '-', () => ({ type: 'string', pattern: '^-' }));
   function branch(field, position, mask, yes, no) {
     if (yes === no) return yes;
     // Always test a set excluding zero. An absent leading digit then fails the
     // predicate, exactly as a virtual zero should; no padding alternative is needed.
+    // A minus sign is not a digit, so it reads as a leading zero too.
     if (mask & 1) {
       mask ^= ALL_DIGITS;
       [yes, no] = [no, yes];
     }
-    const test = predicate(field, position, mask);
+    return decide(digitTest(field, position, mask), yes, no);
+  }
+  function decide(test, yes, no) {
+    if (yes === no) return yes;
     if (yes === true && no === false) return test;
     let node;
     if (yes === false && no === true) node = { not: ref(test) };
@@ -131,10 +136,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
         }
       } else {
         const [field, coefficient] = terms[operand];
-        const children = Array.from({ length: radix }, (_, d) =>
-          build(position, stage, operand + 1, balance + coefficient * d));
         const divisor = RADICES.slice(0, stage).reduce((a, b) => a * b, 1);
-        result = choose(field, position, children, divisor, radix);
+        const read = sign => choose(field, position, Array.from({ length: radix }, (_, d) =>
+          build(position, stage, operand + 1, balance + sign * coefficient * d)), divisor, radix);
+        // A signed amount is its sign times its digits. Testing the sign wherever a digit
+        // is read keeps it out of the state, at the cost of one more test per read.
+        result = spec.signed ? decide(signTest(field), read(-1), read(1)) : read(1);
       }
       memo.set(key, result);
       return result;
@@ -213,18 +220,19 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     }
     return result;
   }
+  const amount = amountSchema(spec.integerDigits, spec.scale, spec.signed);
   const graph = {
     $schema: DRAFT,
     title: spec.title,
-    type: 'object', required: [...spec.fields, ...Object.keys(spec.lists)], additionalProperties: false,
+    type: 'object', required: [...spec.fields.filter(f => !optional.has(f)), ...Object.keys(spec.lists)], additionalProperties: false,
     properties: {
-      ...Object.fromEntries(spec.fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
+      ...Object.fromEntries(spec.fields.map(f => [f, amount])),
       // Items of a list of objects may carry other properties, such as a description.
       ...Object.fromEntries(Object.entries(spec.lists).map(([name, { maxItems, fields }]) =>
         [name, { type: 'array', maxItems, items: fields
-          ? { type: 'object', required: fields, properties: Object.fromEntries(fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
+          ? { type: 'object', required: fields, properties: Object.fromEntries(fields.map(f => [f, amount])),
             ...(lineRoots(name).length && { allOf: lineRoots(name).map(emit) }) }
-          : amountSchema(spec.integerDigits, spec.scale) }]))
+          : amount }]))
     },
     ...(roots.length && { allOf: roots.map(emit) }),
     $defs: Object.fromEntries([...definitions]
@@ -233,7 +241,8 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   };
   const { schema, resources } = packResources(graph, { maxDepth, maxSubschemas, layout });
   const decisionIds = new Set(interned.values());
-  const testsPerDigit = RADICES.reduce((n, radix) => n + Math.ceil(Math.log2(radix)), 0);
+  // A signed amount adds one sign test to each of a digit's stages.
+  const testsPerDigit = RADICES.reduce((n, radix) => n + Math.ceil(Math.log2(radix)) + (spec.signed ? 1 : 0), 0);
   return { schema, stats: {
     bytes: new TextEncoder().encode(JSON.stringify(schema)).length,
     definitions: resources,

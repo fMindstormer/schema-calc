@@ -14,6 +14,9 @@ function layout(input) {
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
   // A list's length varies, while every tally column has a fixed set of blocks.
   if (Object.keys(spec.lists).length) throw new Error('The tally encoding does not support lists; use the flat encoding.');
+  // Its digit blocks have no sign, and every field is a fixed block of the record.
+  if (spec.signed) throw new Error('The tally encoding does not support signed amounts; use the flat encoding.');
+  if (spec.optional) throw new Error('The tally encoding does not support optional fields; use the flat encoding.');
   const equations = spec.constraints.map(source => parseConstraint(source, spec));
   let next = 1;
   const fields = spec.fields.map(name => {
