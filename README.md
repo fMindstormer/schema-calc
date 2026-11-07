@@ -87,6 +87,8 @@ Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one
 
 A schema can travel with a dataset, configuration file or API contract. Schema Calc lets that artifact carry exact reconciliation rules too: totals, percentage budgets, balances, or quantities that must add up. A receiving system needs a compatible Draft 2020-12 validator, rather than an implementation of each rule in each host language.
 
+Four of the document-total rules of EN 16931, the European e-invoicing standard, compile into one schema. On the official example invoices and one-cent changes of them, it gives the official Schematron's verdict on all but two of 371, both explained by a leniency in the CII binding; see [EN 16931 totals in plain JSON Schema](docs/en16931.md).
+
 This is a research prototype with a working compiler, CLI and playground. Its advantage is the portable contract. A handwritten arithmetic check is much smaller and usually faster when you control the receiving application. Schema Calc checks a supplied answer; it does not fill in a missing total.
 
 ## Compile your own contract
@@ -257,6 +259,7 @@ Coverage includes exhaustive small additions and comparisons, lists of every len
 | [docs/experiments.md](docs/experiments.md), [docs/flat-experiment.md](docs/flat-experiment.md) | Successful and rejected compression approaches |
 | [docs/superoptimizer.md](docs/superoptimizer.md) | Search grammar, exhaustive local checks and confirmation results |
 | [compat/README.md](compat/README.md) | The schemas in twelve validators across five languages |
+| [docs/en16931.md](docs/en16931.md) | EN 16931 invoice totals, compared with the official Schematron |
 | [bench/README.md](bench/README.md) | Reproducing results and interpreting timings |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development and evidence required for compiler changes |
 | [docs/releasing.md](docs/releasing.md) | Preparing a source archive and a GitHub release |

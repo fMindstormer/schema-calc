@@ -20,6 +20,7 @@ SOURCE_DIRS = {
     "docs": {".md", ".svg", ".png", ".gif"}, ".github": {".yml", ".yaml", ".md"},
     "compat": {".mjs", ".py", ".txt", ".json", ".md", ".sh", ".go", ".mod", ".sum",
                ".xml", ".java", ".properties", ".csproj", ".cs"},
+    "en16931": {".mjs", ".py", ".json", ".sh", ".java"},
 }
 # Dependency and build output directories inside a source directory.
 SKIPPED_PARTS = {"scratch", "__pycache__", "node_modules", "target", "bin", "obj"}

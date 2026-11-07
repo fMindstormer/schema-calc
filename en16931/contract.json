@@ -1,0 +1,15 @@
+{
+  "title": "EN 16931 document totals: BR-CO-10, BR-CO-13, BR-CO-15 and BR-CO-16",
+  "integerDigits": 6,
+  "scale": 2,
+  "signed": true,
+  "fields": ["lineNetTotal", "allowanceTotal", "chargeTotal", "totalWithoutVat", "vatTotal", "totalWithVat", "paidAmount", "roundingAmount", "amountDue"],
+  "optional": ["allowanceTotal", "chargeTotal", "vatTotal", "paidAmount", "roundingAmount"],
+  "lists": { "lines": { "maxItems": 20, "fields": ["netAmount"] } },
+  "constraints": [
+    "lineNetTotal = sum(lines.netAmount)",
+    "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
+    "totalWithVat = totalWithoutVat + vatTotal",
+    "amountDue = totalWithVat - paidAmount + roundingAmount"
+  ]
+}
