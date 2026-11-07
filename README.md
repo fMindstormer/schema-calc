@@ -81,7 +81,7 @@ npm run build
 npm start
 ```
 
-Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, `999.99 + 0.01 = 1000.00` to exercise a long carry, an even split, where two inequalities hold each share to a third of the total rounded down to the cent, or line items that must add up to the subtotal. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
+Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, `999.99 + 0.01 = 1000.00` to exercise a long carry, an even split, where two inequalities hold each share to a third of the total rounded down to the cent, or line items, each its net plus tax, that add up to the total. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
 
 ## What is it useful for?
 
@@ -132,15 +132,16 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 |---|---|
 | Field names, decimal constants, `+`, `-` | No division or parentheses |
 | `=`, `<=`, `>=`, `<`, `>` | One relation per constraint; no chains such as `a <= b <= c`, and no `!=` |
-| Lists of amounts, `"lists": {"lines": 10}`, summed with `sum(lines)` | Up to 2 lists of up to 20 items; a missing item counts as zero; no indexing or per-item constraints, and no tally encoding |
+| Lists of amounts, `"lists": {"lines": 10}`, summed with `sum(lines)` | Up to 2 lists of up to 20 items; a missing item counts as zero in a sum; no indexing, and no tally encoding |
 | Lists of objects, `"lines": {"maxItems": 10, "fields": ["net", "tax"]}`, summed with `sum(lines.net)` | Up to 4 amount fields per item, each required; other item properties, such as a description, are allowed |
+| Constraints on each line, `lines.amount = lines.net + lines.tax` | Lists of objects only; one line's fields and constants, not top-level fields, sums or other lines |
 | Whole-number coefficients: `3 * a` or `a * 3` | From 1 to 1,000; fields cannot be multiplied together |
 | Repeated terms, unary signs, several constraints at once | Up to 8 fields, 8 constraints and 16 source terms per constraint |
 | Exact, nonnegative decimal **strings** | No JSON numbers, signed input strings, exponents or leading zeroes |
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
 
-All declared fields and lists are required, and extra top-level properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Lists grow roughly with the square of their length, since every position is another digit to add in each column: `sum(lines) = subtotal` at the same precision is 9 kB for one line, 72 kB for 4, 386 kB for 10 and 1.4 MB for 20. Lines that are objects with an `amount` field cost 3–17% more. Nested objects other than list items, and custom arithmetic error messages, are outside the current compiler.
+All declared fields and lists are required, and extra top-level properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Lists grow roughly with the square of their length, since every position is another digit to add in each column: `sum(lines) = subtotal` at the same precision is 9 kB for one line, 72 kB for 4, 386 kB for 10 and 1.4 MB for 20. Lines that are objects with an `amount` field cost 3–17% more. A constraint on each line is compiled once and applied to every line, so its size does not depend on the list's length: on its own, `lines.amount = lines.net + lines.tax` compiles to 20.5 kB for 4 lines or for 20. Nested objects other than list items, and custom arithmetic error messages, are outside the current compiler.
 
 ## The computational model
 
@@ -192,7 +193,7 @@ The result is a standard [Compound Schema Document](https://json-schema.org/unde
 | Allocation | 94,025 B | 21,935 B | **16,447 B** |
 | Carry chain | 129,290 B | 28,167 B | **20,605 B** |
 
-These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. The even split (`3 * share <= total`, `total < 3 * share + 0.03`) is 26,728 B, and the line items (`sum(lines.amount) = subtotal`, up to four lines with a description each) 77,917 B; the earlier compilers predate coefficients, inequalities and lists. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
+These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. The even split (`3 * share <= total`, `total < 3 * share + 0.03`) is 26,728 B, and the line items (`lines.amount = lines.net + lines.tax` and `sum(lines.amount) = total`, for up to four lines) 96,432 B; the earlier compilers predate coefficients, inequalities and lists. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
 
 Version 0.1.0 emitted 41,232, 16,315 and 20,510 B. The current output spends 95 to 132 bytes more on an end-of-string check without lookahead and a 32-level nesting limit, so that validators in more languages load it; see the [compatibility table](compat/README.md). Timings and sizes recorded under `bench/` and in the experiment notes were measured on the 0.1.0 files.
 
@@ -229,11 +230,11 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 41 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 43 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 34,732 | 75 |
+| Original flat input | 35,203 | 79 |
 | Tally input, including malformed encodings | 31,521 | 67 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
@@ -242,7 +243,7 @@ The same flat, tally and example suites also run through ten more validators in 
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions and comparisons, lists of every length up to their maximum, including empty and malformed lists and lines with other properties, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the Node suites and build on Node 20 and 24, the Python suites once, and the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
+Coverage includes exhaustive small additions and comparisons, lists of every length up to their maximum, including empty and malformed lists and lines with other properties, constraints on each line, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the Node suites and build on Node 20 and 24, the Python suites once, and the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change.
 
 ## Explore the project
 

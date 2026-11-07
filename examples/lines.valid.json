@@ -1,17 +1,20 @@
 {
   "lines": [
     {
-      "description": "Notebook",
+      "net": "16.66",
+      "tax": "3.33",
       "amount": "19.99"
     },
     {
-      "description": "Pens",
+      "net": "4.13",
+      "tax": "0.82",
       "amount": "4.95"
     },
     {
-      "description": "Stamp",
+      "net": "0.05",
+      "tax": "0.01",
       "amount": "0.06"
     }
   ],
-  "subtotal": "25.00"
+  "total": "25.00"
 }

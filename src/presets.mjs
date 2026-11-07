@@ -54,16 +54,24 @@ export const presets = {
   lines: {
     label: 'Line items',
     spec: {
-      title: 'Up to four line items add up to the subtotal',
+      title: 'Lines are net plus tax and add up to the total',
       integerDigits: 4,
       scale: 2,
-      fields: ['subtotal'],
-      lists: { lines: { maxItems: 4, fields: ['amount'] } },
-      constraints: ['sum(lines.amount) = subtotal']
+      fields: ['total'],
+      lists: { lines: { maxItems: 4, fields: ['net', 'tax', 'amount'] } },
+      constraints: ['lines.amount = lines.net + lines.tax', 'sum(lines.amount) = total']
     },
-    valid: { lines: [{ description: 'Notebook', amount: '19.99' }, { description: 'Pens', amount: '4.95' }, { description: 'Stamp', amount: '0.06' }], subtotal: '25.00' },
-    invalid: { lines: [{ description: 'Notebook', amount: '19.99' }, { description: 'Pens', amount: '4.95' }, { description: 'Stamp', amount: '0.06' }], subtotal: '25.01' },
-    tamper: { label: 'Add one cent', field: 'subtotal', delta: '0.01' }
+    valid: { lines: [
+      { net: '16.66', tax: '3.33', amount: '19.99' },
+      { net: '4.13', tax: '0.82', amount: '4.95' },
+      { net: '0.05', tax: '0.01', amount: '0.06' }
+    ], total: '25.00' },
+    invalid: { lines: [
+      { net: '16.66', tax: '3.34', amount: '19.99' },
+      { net: '4.13', tax: '0.82', amount: '4.95' },
+      { net: '0.05', tax: '0.01', amount: '0.06' }
+    ], total: '25.00' },
+    tamper: { label: 'Add one cent to a tax', field: 'lines[0].tax', delta: '0.01' }
   }
 };
 

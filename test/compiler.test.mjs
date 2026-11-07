@@ -335,6 +335,61 @@ test('lists of objects sum named fields and allow other properties', () => {
   }
 });
 
+test('constraints on each line hold for every line, however long the list', () => {
+  const spec = { fields: ['total'], lists: { lines: { maxItems: 5, fields: ['net', 'tax', 'amount'] } }, integerDigits: 3, scale: 2,
+    constraints: ['lines.amount = lines.net + lines.tax', 'sum(lines.amount) = total'] };
+  const lines = contract('taxed lines', spec, { tally: false });
+  for (let i = 0; i < 120; i++) {
+    const items = Array.from({ length: random(997) % 6 }, () => {
+      const net = BigInt(random(15000)), tax = BigInt(random(3000));
+      return { net, tax, amount: net + tax };
+    });
+    // A quarter of the records move one field of one line by a unit.
+    if (items.length && i % 4 === 0) {
+      const item = items[random(items.length)], field = ['net', 'tax', 'amount'][random(3)];
+      item[field] = item[field] === 0n ? 1n : item[field] + (random(2) ? 1n : -1n);
+    }
+    const sum = items.reduce((a, { amount }) => a + amount, 0n), each = items.every(({ net, tax, amount }) => amount === net + tax);
+    const record = items.map(({ net, tax, amount }, j) => ({ description: `line ${j}`, net: money(net), tax: money(tax), amount: money(amount) }));
+    for (const total of i % 3 ? [sum] : [sum, sum + 1n]) lines({ lines: record, total: money(total) }, each && total === sum);
+  }
+  // The machine for each line is shared by every item, so the list's length barely changes its size.
+  const longer = { ...spec, lists: { lines: { maxItems: 20, fields: ['net', 'tax', 'amount'] } }, constraints: [spec.constraints[0]] };
+  assert.ok(compile(longer).stats.bytes - compile({ ...longer, lists: spec.lists }).stats.bytes < 8);
+
+  const bounded = contract('bounded lines', { fields: [], lists: { lines: { maxItems: 3, fields: ['net', 'tax'] } }, integerDigits: 3, scale: 2,
+    constraints: ['5 * lines.tax <= lines.net', 'lines.net > 0'] }, { tally: false });
+  assert.equal(corpus.at(-1).schema.allOf, undefined);
+  bounded({ lines: [] }, true);
+  for (let i = 0; i < 300; i++) {
+    const items = Array.from({ length: 1 + random(997) % 3 }, () => {
+      const net = BigInt(random(5) ? random(100000) : random(3)), near = net / 5n + BigInt(random(3)) - 1n;
+      return [net, near < 0n ? 0n : near];
+    });
+    bounded({ lines: items.map(([net, tax]) => ({ sku: 'B-2', net: money(net), tax: money(tax) })) },
+      items.every(([net, tax]) => 5n * tax <= net && net > 0n));
+  }
+
+  const cancelled = contract('a constraint on each line with no terms', { fields: ['x'], lists: { lines: { maxItems: 2, fields: ['a'] } },
+    integerDigits: 1, scale: 2, constraints: ['lines.a - lines.a = 0.01', 'x = x'] }, { tally: false });
+  cancelled({ lines: [], x: '0.00' }, true);
+  cancelled({ lines: [{ a: '0.00' }], x: '0.00' }, false);
+
+  const ledger = contract('constraints on each line of two lists', {
+    fields: [], lists: { debits: { maxItems: 3, fields: ['amount'] }, credits: { maxItems: 3, fields: ['amount'] } }, integerDigits: 3, scale: 2,
+    constraints: ['debits.amount >= 0.01', 'credits.amount <= 500.00', 'sum(debits.amount) = sum(credits.amount)']
+  }, { tally: false });
+  const entries = values => values.map(amount => ({ amount }));
+  ledger({ debits: entries(['600.00']), credits: entries(['300.00', '300.00']) }, true);
+  ledger({ debits: entries(['600.00']), credits: entries(['100.00', '500.01']) }, false);
+  ledger({ debits: entries(['600.00', '0.00']), credits: entries(['300.00', '300.00']) }, false);
+  ledger({ debits: entries(['0.01', '0.01']), credits: entries(['0.02']) }, true);
+  ledger({ debits: [], credits: [] }, true);
+  ledger({ debits: [], credits: entries(['0.00']) }, true);
+  ledger({ debits: entries(['500.00', '500.00']), credits: entries(['500.00', '500.00']) }, true);
+  ledger({ debits: entries(['600.00']), credits: entries(['600.00']) }, false);
+});
+
 test('list syntax and declarations', () => {
   const spec = normalizeSpec({ fields: ['total'], lists: { lines: 3 }, constraints: ['total = 0'] });
   const terms = source => parseConstraint(source, spec).terms;
@@ -358,6 +413,19 @@ test('list syntax and declarations', () => {
     assert.throws(() => parseConstraint(equation, objects), message, equation);
   }
   assert.throws(() => parseConstraint('sum(lines.amount) = total', spec), /lines holds amounts; write sum\(lines\)/);
+  const each = normalizeSpec({ fields: ['total'], lists: { lines: { maxItems: 2, fields: ['net', 'tax', 'amount'] }, refunds: { maxItems: 2, fields: ['amount'] } }, constraints: ['total = 0'] });
+  const { source, ...line } = parseConstraint('lines . amount = lines.net + 2*lines.tax - 0.01', each);
+  assert.deepEqual(line, { relation: '=', terms: [['net', -1], ['tax', -2], ['amount', 1]], constant: 1n, each: 'lines' });
+  assert.equal(parseConstraint('lines.net >= 0.05', each).each, 'lines');
+  assert.equal(parseConstraint('sum(lines.net) = total', each).each, undefined);
+  for (const [equation, message] of [
+    ['lines.net = total', /each line of lines reads only that line's fields and constants; found total\. To add up the list, write sum\(lines\.net\)/],
+    ['lines.amount <= sum(lines.amount)', /found sum\(lines\.amount\)/], ['lines.amount = refunds.amount', /reads one list; found lines and refunds/],
+    ['lines.gross = 0', /Unknown field of lines: gross/], ['total.amount = 0', /Unknown list: total/],
+    ['lines.net.tax = 0', /Use one relation/]]) {
+    assert.throws(() => parseConstraint(equation, each), message, equation);
+  }
+  assert.throws(() => parseConstraint('lines.amount = 0', spec), /lines holds amounts; write sum\(lines\)/);
   for (const [lists, message] of [[{ lines: { maxItems: 2 } }, /between 1 and 4 amount fields/], [{ lines: { maxItems: 2, fields: [] } }, /between 1 and 4/],
     [{ lines: { maxItems: 2, fields: ['a', 'a'] } }, /unique simple identifiers/], [{ lines: { maxItems: 2, fields: ['constructor'] } }, /unique simple identifiers/],
     [{ lines: { maxItems: 30, fields: ['a'] } }, /from 1 to 20/], [{ lines: { fields: ['a'] } }, /integer/], [{ lines: { maxItems: 2, fields: ['a'], extra: 1 } }, /Unknown option for lines: extra/],
@@ -456,7 +524,7 @@ test('flat schemas avoid regex lookaround and stay within parser depth and size 
   const depth = value => value && typeof value === 'object' ? 1 + Math.max(0, ...Object.values(value).map(depth)) : 0;
   // Subschemas reachable without crossing a $ref, which Ajv compiles into one function.
   const region = node => !node || typeof node !== 'object' ? 1 : 1 + Object.entries(node).reduce((n, [key, value]) =>
-    n + (['if', 'then', 'else', 'not'].includes(key) ? region(value)
+    n + (['if', 'then', 'else', 'not', 'items'].includes(key) ? region(value)
       : ['allOf', 'properties'].includes(key) ? Object.values(value).reduce((m, child) => m + region(child), 0) : 0), 0);
   const largestRegion = schema => Math.max(region(schema), ...Object.values(schema.$defs ?? {}).map(region));
   const patterns = new Set();

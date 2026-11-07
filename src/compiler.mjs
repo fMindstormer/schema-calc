@@ -102,7 +102,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     }
     return tree([...groups]);
   }
-  const roots = equations.map(({ source, terms, constant, relation }) => {
+  const machines = equations.map(({ source, terms, constant, relation }) => {
     const memo = new Map(), exact = relation === '=';
     const digits = (constant < 0n ? -constant : constant).toString()
       .padStart(width, '0').split('').reverse()
@@ -141,6 +141,10 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     }
     return { $comment: source, allOf: [ref(build(0, 0, 0, 0))] };
   });
+  // A constraint on each line is one machine over the line's fields, applied to every
+  // item of the list, so it does not grow with the list's length.
+  const roots = machines.filter((_, i) => !equations[i].each);
+  const lineRoots = list => machines.filter((_, i) => equations[i].each === list);
 
   // Count incoming references once per live definition, rather than once per
   // expanded path. This is the graph's initial physical reference count.
@@ -160,7 +164,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       else visit(value);
     }
   }
-  roots.forEach(visit);
+  machines.forEach(visit);
   const inline = new Set();
   function childRefs(node, action) {
     if (!node || typeof node !== 'object') return;
@@ -218,10 +222,11 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       // Items of a list of objects may carry other properties, such as a description.
       ...Object.fromEntries(Object.entries(spec.lists).map(([name, { maxItems, fields }]) =>
         [name, { type: 'array', maxItems, items: fields
-          ? { type: 'object', required: fields, properties: Object.fromEntries(fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])) }
+          ? { type: 'object', required: fields, properties: Object.fromEntries(fields.map(f => [f, amountSchema(spec.integerDigits, spec.scale)])),
+            ...(lineRoots(name).length && { allOf: lineRoots(name).map(emit) }) }
           : amountSchema(spec.integerDigits, spec.scale) }]))
     },
-    allOf: roots.map(emit),
+    ...(roots.length && { allOf: roots.map(emit) }),
     $defs: Object.fromEntries([...definitions]
       .filter(([key]) => live.has(key) && !inline.has(key))
       .map(([key, node]) => [key, emit(node)]))
@@ -235,7 +240,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     decisionNodes: [...live].filter(id => decisionIds.has(id)).length,
     predicates: [...predicates.values()].filter(id => live.has(id)).length,
     exploredStates: states,
-    maxDigitTests: equations.reduce((n, equation) => n + width * equation.terms.length * testsPerDigit, 0)
+    maxDigitTests: equations.reduce((n, { terms, each }) => n + width * terms.length * testsPerDigit * (each ? spec.lists[each].maxItems : 1), 0)
   } };
 }
 

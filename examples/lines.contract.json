@@ -1,19 +1,22 @@
 {
-  "title": "Up to four line items add up to the subtotal",
+  "title": "Lines are net plus tax and add up to the total",
   "integerDigits": 4,
   "scale": 2,
   "fields": [
-    "subtotal"
+    "total"
   ],
   "lists": {
     "lines": {
       "maxItems": 4,
       "fields": [
+        "net",
+        "tax",
         "amount"
       ]
     }
   },
   "constraints": [
-    "sum(lines.amount) = subtotal"
+    "lines.amount = lines.net + lines.tax",
+    "sum(lines.amount) = total"
   ]
 }

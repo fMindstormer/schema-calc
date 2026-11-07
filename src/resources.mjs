@@ -4,9 +4,10 @@
 export const MAX_DEPTH = 32;
 // Ajv and schemasafe compile everything between two references into one function.
 // With 13,000 to 26,000 subschemas in such a region, Ajv's call stack overflowed
-// while validating some records; the shipped examples have at most 629.
+// while validating some records; the shipped examples have at most 748.
 export const MAX_SUBSCHEMAS = 2000;
-const SUBSCHEMA = new Set(['if', 'then', 'else', 'not']);
+// A list's items holds the constraints on each line.
+const SUBSCHEMA = new Set(['if', 'then', 'else', 'not', 'items']);
 const SUBSCHEMA_MAPS = new Set(['allOf', 'properties']);
 
 function label(n) {

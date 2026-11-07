@@ -107,7 +107,8 @@ worker.onmessage = ({ data }) => {
   updateHandoff(data.valid);
   if (data.valid) setState('valid', 'Record accepted', 'Every field has the right format, and every declared equation holds.');
   else {
-    const shapeError = data.errors.find(e => ['type', 'required', 'additionalProperties'].includes(e.keyword) || (e.keyword === 'pattern' && e.schemaPath.startsWith('#/properties/')));
+    // Format checks sit under properties and items; the constraints on each line sit in the items' allOf.
+    const shapeError = data.errors.find(e => ['type', 'required', 'additionalProperties'].includes(e.keyword) || (e.keyword === 'pattern' && e.schemaPath.startsWith('#/properties/') && !e.schemaPath.includes('/allOf/')));
     setState('invalid', 'Record rejected', shapeError ? `${shapeError.instancePath || 'Record'} ${shapeError.message}.` : 'A declared equation or field format does not hold. The generated schema rejected this record.');
     $('error-details').hidden = false;
     $('validator-errors').textContent = JSON.stringify(data.errors, null, 2);

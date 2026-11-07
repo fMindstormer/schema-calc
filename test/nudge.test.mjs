@@ -40,3 +40,17 @@ test('the shortcut explains why it cannot apply instead of guessing', () => {
   for (const record of [null, [], 'invoice']) assert.match(reason(spec, record), /JSON object/);
   assert.match(reason({ fields: [] }, valid), /contract is not valid/);
 });
+
+test('the shortcut can change a field of one line', () => {
+  const { spec, valid } = presets.lines;
+  const nudge = (record, field, delta = '0.01') => nudgeField(spec, record, { field, delta });
+  const { record } = nudge(valid, 'lines[1].net');
+  assert.deepEqual(record, { ...valid, lines: [valid.lines[0], { ...valid.lines[1], net: '4.14' }, valid.lines[2]] });
+  assert.deepEqual(Object.keys(record.lines[1]), Object.keys(valid.lines[1]));
+  assert.equal(valid.lines[1].net, '4.13');
+  assert.match(nudge(valid, 'lines[3].tax').reason, /no line 4 in lines/);
+  for (const field of ['lines[0].gross', 'items[0].tax', 'total[0].tax', 'lines.tax', 'lines[0]', 'constructor[0].tax']) assert.match(nudge(valid, field).reason, /has no .* field/, field);
+  for (const lines of [undefined, {}, ['1.00'], [null], [[]]]) assert.match(nudge({ ...valid, lines }, 'lines[0].tax').reason, /no line 1 in lines/);
+  assert.match(nudge({ ...valid, lines: [{ tax: 3 }] }, 'lines[0].tax').reason, /lines\[0\]\.tax must be a decimal string/);
+  assert.match(nudge(valid, 'lines[0].tax', '-3.34').reason, /lines\[0\]\.tax would fall below 0.00/);
+});

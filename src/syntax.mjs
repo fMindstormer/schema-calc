@@ -75,31 +75,50 @@ const RELATIONS = new Set(['=', '<=', '>=', '<', '>']);
  * by a whole number, without eval. Constants are converted exactly to minor units.
  * The result means Σ terms + constant = 0, or <= 0 for any inequality: >= and >
  * negate both sides, and since values are whole minor units, a strict comparison
- * adds one unit (S < 0 exactly when S + 1 <= 0).
+ * adds one unit (S < 0 exactly when S + 1 <= 0). A constraint written with list.field
+ * holds on every line of that list: the result names the list as each, and its terms
+ * name the line's own fields.
  */
 export function parseConstraint(source, spec) {
   if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
-  const tokens = (source.match(/sum\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?\s*\)|[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [])
-    .map(token => token.startsWith('sum') ? token.replace(/\s+/g, '') : token);
+  const tokens = (source.match(/sum\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?\s*\)|[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?|[0-9]+(?:\.[0-9]+)?|<=|>=|[<>=+*-]|\S/g) ?? [])
+    .map(token => /^[A-Za-z_]/.test(token) ? token.replace(/\s+/g, '') : token);
   let cursor = 0, termCount = 0, constant = 0n;
-  const coefficients = new Map(variables(spec).map(name => [name, 0]));
+  // Each field of a line, written list.field, is a variable of a constraint on every line.
+  const members = Object.entries(spec.lists).flatMap(([list, { fields }]) => (fields ?? []).map(f => `${list}.${f}`));
+  const coefficients = new Map([...variables(spec), ...members].map(name => [name, 0]));
   // A field, or sum(list) or sum(list.field): every position of the list, each a variable of its own.
   const SUM = /^sum\(([A-Za-z_][A-Za-z0-9_]*)(?:\.([A-Za-z_][A-Za-z0-9_]*))?\)$/;
-  const operand = token => IDENTIFIER.test(token) || SUM.test(token);
+  const MEMBER = /^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/;
+  const operand = token => IDENTIFIER.test(token) || SUM.test(token) || MEMBER.test(token);
   const summed = list => spec.lists[list].fields ? `sum(${list}.${spec.lists[list].fields[0]})` : `sum(${list})`;
+  // Every operand reads the record itself, or one line of a list; a constraint reads only one of them.
+  const scopes = new Map();
+  function list(name, field) {
+    if (!Object.hasOwn(spec.lists, name)) throw new Error(`Unknown list: ${name}`);
+    const { fields } = spec.lists[name];
+    if (Boolean(fields) !== (field !== undefined)) throw new Error(`${name} holds ${fields ? 'objects' : 'amounts'}; write ${summed(name)}.`);
+    if (fields && !fields.includes(field)) throw new Error(`Unknown field of ${name}: ${field}`);
+    return spec.lists[name];
+  }
   function read(token) {
+    const member = MEMBER.exec(token);
+    if (member) {
+      const [, name, field] = member;
+      list(name, field);
+      if (!scopes.has(name)) scopes.set(name, token);
+      return [token];
+    }
     const match = SUM.exec(token);
+    if (!scopes.has('')) scopes.set('', token);
     if (!match) {
       if (Object.hasOwn(spec.lists, token)) throw new Error(`${token} is a list; write ${summed(token)}.`);
       if (!spec.fields.includes(token)) throw new Error(`Unknown field: ${token}`);
       return [token];
     }
-    const [, list, field] = match;
-    if (!Object.hasOwn(spec.lists, list)) throw new Error(`Unknown list: ${list}`);
-    const { maxItems, fields } = spec.lists[list];
-    if (Boolean(fields) !== (field !== undefined)) throw new Error(`${list} holds ${fields ? 'objects' : 'amounts'}; write ${summed(list)}.`);
-    if (fields && !fields.includes(field)) throw new Error(`Unknown field of ${list}: ${field}`);
-    return Array.from({ length: maxItems }, (_, index) => field === undefined ? `${list}[${index}]` : `${list}[${index}].${field}`);
+    const [, name, field] = match;
+    const { maxItems } = list(name, field);
+    return Array.from({ length: maxItems }, (_, index) => field === undefined ? `${name}[${index}]` : `${name}[${index}].${field}`);
   }
   function expression(side) {
     let sign = 1;
@@ -136,11 +155,19 @@ export function parseConstraint(source, spec) {
   if (!RELATIONS.has(relation)) throw new Error('Use one relation (=, <=, >=, < or >) between sums or differences.');
   expression(-1);
   if (cursor !== tokens.length) throw new Error(`Unexpected token: ${tokens[cursor]}`);
+  const lines = [...scopes.keys()].filter(Boolean);
+  if (lines.length > 1) throw new Error(`A constraint on each line reads one list; found ${lines.join(' and ')}.`);
+  const [each] = lines;
+  if (each && scopes.has('')) {
+    throw new Error(`A constraint on each line of ${each} reads only that line's fields and constants; found ${scopes.get('')}. To add up the list, write sum(${scopes.get(each)}).`);
+  }
   const sign = relation.startsWith('>') ? -1 : 1;
   return {
     source, relation: relation === '=' ? '=' : '<=',
-    terms: [...coefficients].filter(([, c]) => c !== 0).map(([field, c]) => [field, sign * c]),
-    constant: BigInt(sign) * constant + (relation === '<' || relation === '>' ? 1n : 0n)
+    // A constraint on each line names the line's own fields.
+    terms: [...coefficients].filter(([, c]) => c !== 0).map(([field, c]) => [each ? field.slice(each.length + 1) : field, sign * c]),
+    constant: BigInt(sign) * constant + (relation === '<' || relation === '>' ? 1n : 0n),
+    ...(each && { each })
   };
 }
 
