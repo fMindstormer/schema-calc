@@ -1,10 +1,10 @@
 // Compare the compiled EN 16931 totals schema with the official Schematron on the
 // official example invoices and on one-cent changes of them. Run en16931/fetch.sh
 // first; needs Python 3 and a JDK (JAVA_HOME, or java on the PATH).
-//   node en16931/run.mjs [--python] [--write]
-// --python also validates the unchanged examples with Python jsonschema, which needs
-// a raised recursion limit and takes seconds per invoice. --write records the results
-// in en16931/results.json and the generated block of docs/en16931.md.
+//   node en16931/run.mjs [--python] [--plain-ajv] [--write]
+// --python also validates every invoice with Python jsonschema. --plain-ajv times
+// Ajv's own compile of the whole schema, which takes minutes. --write records the
+// results in en16931/results.json and the generated block of docs/en16931.md.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -82,13 +82,22 @@ for (const doc of documents) {
   doc.agrees = doc.jsonFailed.join() === doc.schematronFailed.join() && doc.combinedValid === !doc.schematronFailed.length;
 }
 
-// 6. Optionally, Python jsonschema on the unchanged examples.
-let pythonResults = null;
+// 6. Optionally, Python jsonschema with its default options, and Ajv's own compile.
+let pythonResults = null, plainAjv = null;
 if (args.includes('--python')) {
-  const originals = documents.filter(d => !d.change);
-  const [info, ...verdicts] = run(python, ['-I', join(root, 'en16931/python_check.py'), join(scratch, 'en16931.schema.json')], originals.map(d => JSON.stringify(d.record)).join('\n'));
-  verdicts.forEach((verdict, i) => Object.assign(originals[i], { pythonValid: verdict.valid, pythonMs: verdict.ms }));
-  pythonResults = { ...info, agree: originals.every(d => d.pythonValid === d.combinedValid), medianMs: median(originals.map(d => d.pythonMs)) };
+  const [info, ...verdicts] = run(python, ['-I', join(root, 'en16931/python_check.py'), join(scratch, 'en16931.schema.json')], documents.map(d => JSON.stringify(d.record)).join('\n'));
+  verdicts.forEach((verdict, i) => Object.assign(documents[i], { pythonValid: verdict.valid, pythonMs: verdict.ms }));
+  pythonResults = { ...info, agree: documents.filter(d => d.pythonValid === d.combinedValid).length, of: documents.length, medianMs: median(documents.map(d => d.pythonMs)) };
+}
+if (args.includes('--plain-ajv')) {
+  // Fresh processes, since the stack these need depends on what ran before them.
+  const input = documents.map(d => JSON.stringify(d.record)).join('\n');
+  plainAjv = ['default', 'no-inline'].map(options => {
+    const result = spawnSync(process.execPath, [join(root, 'en16931/plain_ajv.mjs'), join(scratch, 'en16931.schema.json'), ...(options === 'no-inline' ? ['--no-inline'] : [])], { input, encoding: 'utf8', maxBuffer: 1 << 28 });
+    const [info = { compiled: false }, ...verdicts] = result.stdout.trim().split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line));
+    return { options, ...info, crashed: result.status !== 0, overflowed: verdicts.filter(v => v.valid === null).length,
+      agree: verdicts.filter((v, i) => v.valid === documents[i].combinedValid).length, of: documents.length };
+  });
 }
 
 const inForm = documents.filter(d => d.representable);
@@ -105,6 +114,7 @@ const summary = {
   schema: { bytes: combined.bytes, compileMs: Math.round(combined.compileMs), prepareMs: Math.round(combined.prepareMs), validateMedianMs: median(inForm.map(d => d.ajvMs)) },
   schematron: { ublCompileMs: schematron.ubl.compileMs, ciiCompileMs: schematron.cii.compileMs, validateMedianMs: median(documents.map(d => d.schematronMs)) },
   python: pythonResults,
+  plainAjv,
   disagreements: inForm.filter(d => !d.agrees).map(({ syntax, example, change, schematronFailed, jsonFailed, combinedValid }) => ({ syntax, example, change, schematronFailed, jsonFailed, combinedValid }))
 };
 console.log(JSON.stringify(summary, null, 2));
@@ -134,8 +144,11 @@ if (args.includes('--write')) {
     '|---|---:|---:|',
     `| Rules checked | All of EN 16931 | BR-CO-10, -13, -15, -16 |`,
     `| Size | ${kB(readFileSync(join(artefacts, 'ubl/xslt/EN16931-UBL-validation.xslt')).length)} (UBL), ${kB(readFileSync(join(artefacts, 'cii/xslt/EN16931-CII-validation.xslt')).length)} (CII) | ${kB(combined.bytes)} |`,
-    `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${(combined.prepareMs / 1000).toFixed(0)} s, Ajv ${summary.ajv} |`,
-    `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${(pythonResults.medianMs / 1000).toFixed(1)} s in Python jsonschema` : ''} |`,
+    `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${(combined.prepareMs / 1000).toFixed(0)} s, Ajv ${summary.ajv}, resources added bottom-up |`,
+    `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${pythonResults.medianMs >= 1000 ? `${(pythonResults.medianMs / 1000).toFixed(1)} s` : `${ms(pythonResults.medianMs)} ms`} in Python jsonschema ${pythonResults.jsonschema}` : ''} |`,
+    ...(pythonResults ? [`| Python \`jsonschema\`, default options | | same verdict on ${pythonResults.agree} of ${pythonResults.of} |`] : []),
+    ...(plainAjv ?? []).map(({ options, compiled, ms, crashed, overflowed, agree, of }) => `| Ajv's own \`compile\`, ${options === 'default' ? 'default options' : '`inlineRefs: false`'} | | ${!compiled ? 'overflows the stack while compiling'
+      : `compiles in ${(ms / 1000).toFixed(0)} s; ${crashed ? 'then overflows the stack while validating' : `${overflowed ? `${overflowed} of ${of} validations overflow the stack, ` : ''}same verdict on ${agree} of ${of}`}`} |`),
     '',
     `Measured on ${summary.environment.cpu}, ${summary.environment.platform}, Node ${process.version}, ${summary.environment.java}; medians of ${REPEAT} warm runs per invoice, excluding parsing.`
   ].join('\n');
