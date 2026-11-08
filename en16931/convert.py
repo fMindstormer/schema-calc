@@ -20,6 +20,7 @@ CBC = '{urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2}'
 CAC = '{urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2}'
 RAM = '{urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100}'
 RSM = '{urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100}'
+UDT = '{urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100}'
 INTEGER_DIGITS = 6
 
 # JSON name, business term, UBL element in LegalMonetaryTotal, CII element in the header summation.
@@ -48,29 +49,54 @@ def amount(text):
     return ('-' if cents < 0 else '') + f'{abs(cents) // 100}.{abs(cents) % 100:02d}'
 
 
+def indicator(text):
+    """An xs:boolean as the Schematron compares it: 'true' or '1', 'false' or '0'."""
+    return {'true': True, '1': True, 'false': False, '0': False}.get((text or '').strip())
+
+
 def elements(root):
-    """Map each business term to the XML elements that hold it, and list the lines."""
+    """Map each business term to the XML elements that hold it, and each list to the
+    elements of its items: (identifier, amount element) pairs."""
     if root.tag.endswith('}CrossIndustryInvoice'):
         settlement = root.find(f'{RSM}SupplyChainTradeTransaction/{RAM}ApplicableHeaderTradeSettlement')
         currency = settlement.findtext(f'{RAM}InvoiceCurrencyCode', '').strip()
         summation = settlement.find(f'{RAM}SpecifiedTradeSettlementHeaderMonetarySummation')
         terms = {name: summation.findall(f'{RAM}{cii}')[:1] for name, _, _, cii in TOTALS}
         terms['vatTotal'] = [e for e in summation.findall(f'{RAM}TaxTotalAmount') if e.get('currencyID') == currency]
-        lines = [(item.findtext(f'{RAM}AssociatedDocumentLineDocument/{RAM}LineID'),
-                  item.find(f'{RAM}SpecifiedLineTradeSettlement/{RAM}SpecifiedTradeSettlementLineMonetarySummation/{RAM}LineTotalAmount'))
-                 for item in root.findall(f'{RSM}SupplyChainTradeTransaction/{RAM}IncludedSupplyChainTradeLineItem')]
-        return 'CII', terms, lines
+        charge = lambda e: indicator(e.findtext(f'{RAM}ChargeIndicator/{UDT}Indicator'))
+        allowances = settlement.findall(f'{RAM}SpecifiedTradeAllowanceCharge')
+        lists = {
+            'lines': [(item.findtext(f'{RAM}AssociatedDocumentLineDocument/{RAM}LineID'),
+                       item.find(f'{RAM}SpecifiedLineTradeSettlement/{RAM}SpecifiedTradeSettlementLineMonetarySummation/{RAM}LineTotalAmount'))
+                      for item in root.findall(f'{RSM}SupplyChainTradeTransaction/{RAM}IncludedSupplyChainTradeLineItem')],
+            'allowances': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount')) for e in allowances if charge(e) is False],
+            'charges': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount')) for e in allowances if charge(e) is True],
+            'vatBreakdown': [(e.findtext(f'{RAM}CategoryCode'), e.find(f'{RAM}CalculatedAmount')) for e in settlement.findall(f'{RAM}ApplicableTradeTax')],
+        }
+        return 'CII', terms, lists
     currency = root.findtext(f'{CBC}DocumentCurrencyCode', '').strip()
     totals = root.find(f'{CAC}LegalMonetaryTotal')
     terms = {name: totals.findall(f'{CBC}{ubl}') for name, _, ubl, _ in TOTALS}
-    terms['vatTotal'] = [e for e in root.findall(f'{CAC}TaxTotal/{CBC}TaxAmount') if e.get('currencyID') == currency]
-    lines = [(line.findtext(f'{CBC}ID'), line.find(f'{CBC}LineExtensionAmount'))
-             for line in root.findall(f'{CAC}InvoiceLine') + root.findall(f'{CAC}CreditNoteLine')]
-    return 'UBL', terms, lines
+    vat = [e for e in root.findall(f'{CAC}TaxTotal') if (e.find(f'{CBC}TaxAmount') is not None and e.find(f'{CBC}TaxAmount').get('currencyID') == currency)]
+    terms['vatTotal'] = [e.find(f'{CBC}TaxAmount') for e in vat]
+    adjustments = root.findall(f'{CAC}AllowanceCharge')
+    lists = {
+        'lines': [(line.findtext(f'{CBC}ID'), line.find(f'{CBC}LineExtensionAmount'))
+                  for line in root.findall(f'{CAC}InvoiceLine') + root.findall(f'{CAC}CreditNoteLine')],
+        'allowances': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount')) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is False],
+        'charges': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount')) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is True],
+        'vatBreakdown': [(e.findtext(f'{CAC}TaxCategory/{CBC}ID'), e.find(f'{CBC}TaxAmount')) for total in vat[:1] for e in total.findall(f'{CAC}TaxSubtotal')],
+    }
+    return 'UBL', terms, lists
+
+
+# Each list's amount field, and the property that names an item: its line number,
+# reason code or VAT category. Other properties of an item are not checked.
+LISTS = {'lines': ('netAmount', 'id'), 'allowances': ('amount', 'reason'), 'charges': ('amount', 'reason'), 'vatBreakdown': ('taxAmount', 'category')}
 
 
 def to_json(root):
-    _, terms, lines = elements(root)
+    _, terms, lists = elements(root)
     record = {}
     for name, found in terms.items():
         # An absent optional term is omitted. Two VAT totals in the document currency
@@ -79,14 +105,18 @@ def to_json(root):
             record[name] = amount(found[0].text)
         elif len(found) > 1:
             record[name] = [amount(e.text) for e in found]
-    record['lines'] = [{'id': (line_id or '').strip(), 'netAmount': amount(net.text) if net is not None else None} for line_id, net in lines]
+    for name, items in lists.items():
+        field, label = LISTS[name]
+        record[name] = [{**({label: key.strip()} if key is not None else {}), field: amount(value.text) if value is not None else None}
+                        for key, value in items]
     return record
 
 
 # Each change adds one cent to the named terms. Pairs keep one rule true while breaking another.
 CHANGES = [['lineNetTotal'], ['allowanceTotal'], ['chargeTotal'], ['totalWithoutVat'], ['vatTotal'], ['totalWithVat'],
-           ['paidAmount'], ['roundingAmount'], ['amountDue'], ['line'],
-           ['line', 'lineNetTotal'], ['totalWithVat', 'amountDue'], ['totalWithoutVat', 'totalWithVat', 'amountDue']]
+           ['paidAmount'], ['roundingAmount'], ['amountDue'], ['lines'], ['allowances'], ['charges'], ['vatBreakdown'],
+           ['lines', 'lineNetTotal'], ['allowances', 'allowanceTotal'], ['charges', 'chargeTotal'], ['vatBreakdown', 'vatTotal'],
+           ['totalWithVat', 'amountDue'], ['totalWithoutVat', 'totalWithVat', 'amountDue']]
 
 
 def mutate(path, outdir):
@@ -96,9 +126,10 @@ def mutate(path, outdir):
     written = []
     for change in CHANGES:
         tree = ET.parse(path)
-        _, terms, lines = elements(tree.getroot())
-        targets = [lines[0][1] if name == 'line' and lines else (terms.get(name) or [None])[0] for name in change]
-        if any(target is None for target in targets) or (change == ['vatTotal'] and len(terms['vatTotal']) != 1):
+        _, terms, lists = elements(tree.getroot())
+        # A list's change raises its first item.
+        targets = [(lists[name][:1] or [(None, None)])[0][1] if name in lists else (terms.get(name) or [None])[0] for name in change]
+        if any(target is None for target in targets) or ('vatTotal' in change and len(terms['vatTotal']) != 1):
             continue
         for target in targets:
             target.text = str(Decimal(target.text.strip()) + Decimal('0.01'))

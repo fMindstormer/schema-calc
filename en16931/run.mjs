@@ -15,7 +15,8 @@ import { prepareValidator } from '../src/ajv-validator.mjs';
 const root = new URL('..', import.meta.url).pathname;
 const scratch = join(root, 'bench/scratch/en16931'), artefacts = join(scratch, 'artefacts');
 const args = process.argv.slice(2);
-const RULES = ['BR-CO-10', 'BR-CO-13', 'BR-CO-15', 'BR-CO-16'];
+// In the order of the contract's constraints.
+const RULES = ['BR-CO-10', 'BR-CO-11', 'BR-CO-12', 'BR-CO-13', 'BR-CO-14', 'BR-CO-15', 'BR-CO-16'];
 const REPEAT = 50;
 const contract = JSON.parse(readFileSync(join(root, 'en16931/contract.json'), 'utf8'));
 const java = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin/java') : 'java';
@@ -56,10 +57,12 @@ for (const syntax of ['ubl', 'cii']) {
 // 3. The JSON form of each invoice.
 run('python3', ['-I', join(root, 'en16931/convert.py'), 'lines'], documents.map(d => d.path).join('\n')).forEach((record, i) => { documents[i].record = record; });
 const AMOUNT = new RegExp(`^-?(0|[1-9][0-9]{0,${contract.integerDigits - 1}})\\.[0-9]{2}$`);
-const representable = ({ lines, ...totals }) => lines.length <= contract.lists.lines.maxItems &&
-  [...Object.values(totals), ...lines.map(line => line.netAmount)].every(value => typeof value === 'string' && AMOUNT.test(value));
+const listed = Object.entries(contract.lists);
+const representable = record => listed.every(([name, { maxItems }]) => Array.isArray(record[name]) && record[name].length <= maxItems) &&
+  [...contract.fields.map(field => record[field]).filter(value => value !== undefined),
+    ...listed.flatMap(([name, { fields: [field] }]) => record[name].map(item => item[field]))].every(value => typeof value === 'string' && AMOUNT.test(value));
 
-// 4. One schema for all four rules, and one for each rule alone.
+// 4. One schema for all the rules, and one for each rule alone.
 function prepare(constraints) {
   let start = performance.now();
   const { schema, stats } = compile({ ...contract, constraints }, { maxDefinitions: 3e6 });
@@ -138,11 +141,11 @@ if (args.includes('--write')) {
     '| Rule | Rejected by the Schematron | Same verdict | Schema for this rule alone |',
     '|---|---:|---:|---:|',
     ...RULES.map(rule => `| ${rule} | ${summary.byRule[rule].schematronFails} | ${summary.byRule[rule].agree} of ${inForm.length} | ${kB(summary.byRule[rule].bytes)} |`),
-    `| All four | ${inForm.filter(d => d.schematronFailed.length).length} | ${inForm.filter(d => d.combinedValid === !d.schematronFailed.length).length} of ${inForm.length} | ${kB(combined.bytes)} |`,
+    `| All seven | ${inForm.filter(d => d.schematronFailed.length).length} | ${inForm.filter(d => d.combinedValid === !d.schematronFailed.length).length} of ${inForm.length} | ${kB(combined.bytes)} |`,
     '',
     '| | Official Schematron (XSLT) | Compiled JSON Schema |',
     '|---|---:|---:|',
-    `| Rules checked | All of EN 16931 | BR-CO-10, -13, -15, -16 |`,
+    `| Rules checked | All of EN 16931 | BR-CO-10 to BR-CO-16 |`,
     `| Size | ${kB(readFileSync(join(artefacts, 'ubl/xslt/EN16931-UBL-validation.xslt')).length)} (UBL), ${kB(readFileSync(join(artefacts, 'cii/xslt/EN16931-CII-validation.xslt')).length)} (CII) | ${kB(combined.bytes)} |`,
     `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${(combined.prepareMs / 1000).toFixed(0)} s, Ajv ${summary.ajv}, resources added bottom-up |`,
     `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${pythonResults.medianMs >= 1000 ? `${(pythonResults.medianMs / 1000).toFixed(1)} s` : `${ms(pythonResults.medianMs)} ms`} in Python jsonschema ${pythonResults.jsonschema}` : ''} |`,

@@ -497,7 +497,7 @@ test('list syntax and declarations', () => {
   }
   const base = { fields: ['total'], constraints: ['total = 0'] };
   for (const [lists, message] of [[{ lines: 0 }, /lines must be an integer from 1 to 20/], [{ lines: 21 }, /from 1 to 20/], [{ lines: 2.5 }, /integer/],
-    [{ total: 2 }, /unique/], [{ __proto__: null, ['__proto__']: 2 }, /reserved/], [{ a: 1, b: 1, c: 1 }, /at most 2 lists/], [[3], /map each list name/]]) {
+    [{ total: 2 }, /unique/], [{ __proto__: null, ['__proto__']: 2 }, /reserved/], [{ a: 1, b: 1, c: 1, d: 1, e: 1 }, /at most 4 lists/], [[3], /map each list name/]]) {
     assert.throws(() => normalizeSpec({ ...base, lists }), message, JSON.stringify(lists));
   }
   assert.throws(() => normalizeSpec({ fields: [], constraints: ['0 = 0'] }), /at least one field or list/);

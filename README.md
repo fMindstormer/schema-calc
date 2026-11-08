@@ -87,7 +87,7 @@ Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one
 
 A schema can travel with a dataset, configuration file or API contract. Schema Calc lets that artifact carry exact reconciliation rules too: totals, percentage budgets, balances, or quantities that must add up. A receiving system needs a compatible Draft 2020-12 validator, rather than an implementation of each rule in each host language.
 
-Four of the document-total rules of EN 16931, the European e-invoicing standard, compile into one schema. On the official example invoices and one-cent changes of them, it gives the official Schematron's verdict on all but two of 371, both explained by a leniency in the CII binding; see [EN 16931 totals in plain JSON Schema](docs/en16931.md).
+Seven of the document-total rules of EN 16931, the European e-invoicing standard, BR-CO-10 to BR-CO-16, compile into one schema. On the official example invoices and one-cent changes of them, it gives the official Schematron's verdict on all but six of 475, all explained by two leniencies in the CII binding; see [EN 16931 totals in plain JSON Schema](docs/en16931.md).
 
 This is a research prototype with a working compiler, CLI and playground. Its advantage is the portable contract. A handwritten arithmetic check is much smaller and usually faster when you control the receiving application. Schema Calc checks a supplied answer; it does not fill in a missing total.
 
@@ -134,7 +134,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 |---|---|
 | Field names, decimal constants, `+`, `-` | No division or parentheses |
 | `=`, `<=`, `>=`, `<`, `>` | One relation per constraint; no chains such as `a <= b <= c`, and no `!=` |
-| Lists of amounts, `"lists": {"lines": 10}`, summed with `sum(lines)` | Up to 2 lists of up to 20 items; a missing item counts as zero in a sum; no indexing, and no tally encoding |
+| Lists of amounts, `"lists": {"lines": 10}`, summed with `sum(lines)` | Up to 4 lists of up to 20 items; a missing item counts as zero in a sum; no indexing, and no tally encoding |
 | Lists of objects, `"lines": {"maxItems": 10, "fields": ["net", "tax"]}`, summed with `sum(lines.net)` | Up to 4 amount fields per item, each required; other item properties, such as a description, are allowed |
 | Constraints on each line, `lines.amount = lines.net + lines.tax` | Lists of objects only; one line's fields and constants, not top-level fields, sums or other lines |
 | Whole-number coefficients: `3 * a` or `a * 3` | From 1 to 1,000; fields cannot be multiplied together |
@@ -233,7 +233,7 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 47 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 48 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|

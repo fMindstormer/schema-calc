@@ -1,14 +1,22 @@
 {
-  "title": "EN 16931 document totals: BR-CO-10, BR-CO-13, BR-CO-15 and BR-CO-16",
+  "title": "EN 16931 document totals: BR-CO-10 to BR-CO-16",
   "integerDigits": 6,
   "scale": 2,
   "signed": true,
   "fields": ["lineNetTotal", "allowanceTotal", "chargeTotal", "totalWithoutVat", "vatTotal", "totalWithVat", "paidAmount", "roundingAmount", "amountDue"],
   "optional": ["allowanceTotal", "chargeTotal", "vatTotal", "paidAmount", "roundingAmount"],
-  "lists": { "lines": { "maxItems": 20, "fields": ["netAmount"] } },
+  "lists": {
+    "lines": { "maxItems": 20, "fields": ["netAmount"] },
+    "allowances": { "maxItems": 5, "fields": ["amount"] },
+    "charges": { "maxItems": 5, "fields": ["amount"] },
+    "vatBreakdown": { "maxItems": 5, "fields": ["taxAmount"] }
+  },
   "constraints": [
     "lineNetTotal = sum(lines.netAmount)",
+    "allowanceTotal = sum(allowances.amount)",
+    "chargeTotal = sum(charges.amount)",
     "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
+    "vatTotal = sum(vatBreakdown.taxAmount)",
     "totalWithVat = totalWithoutVat + vatTotal",
     "amountDue = totalWithVat - paidAmount + roundingAmount"
   ]

@@ -9,7 +9,7 @@ function requireInteger(value, min, max, label) {
   }
 }
 
-export const MAX_FIELDS = 16, MAX_LISTS = 2, MAX_ITEMS = 20, MAX_ITEM_FIELDS = 4;
+export const MAX_FIELDS = 16, MAX_LISTS = 4, MAX_ITEMS = 20, MAX_ITEM_FIELDS = 4;
 
 // A list holds amounts ("lines": 10), or objects with named amount fields
 // ("lines": {"maxItems": 10, "fields": ["amount"]}) and any other properties.
