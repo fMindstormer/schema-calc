@@ -4,11 +4,12 @@
 export const MAX_DEPTH = 32;
 // Ajv and schemasafe compile everything between two references into one function.
 // With 13,000 to 26,000 subschemas in such a region, Ajv's call stack overflowed
-// while validating some records; the shipped examples have at most 748.
+// while validating some records; the shipped examples have at most 723.
 export const MAX_SUBSCHEMAS = 2000;
 // A list's items holds the constraints on each line.
+const BODY = '_';
 const SUBSCHEMA = new Set(['if', 'then', 'else', 'not', 'items']);
-const SUBSCHEMA_MAPS = new Set(['allOf', 'properties']);
+const SUBSCHEMA_MAPS = new Set(['allOf', 'anyOf', 'properties']);
 
 function label(n) {
   let key = '';
@@ -69,7 +70,7 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX
     }
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, emit(child, hidden || key === 'prefixItems')]));
   }
-  const { $defs, ...root } = graph;
+  const { $defs, $schema, title, ...root } = graph;
   // A deterministic document namespace avoids ordinary collisions when several
   // generated schemas are registered together. This is an identifier, not a digest
   // used for authentication. All child names remain relative sibling URLs.
@@ -77,7 +78,13 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX
   for (const byte of new TextEncoder().encode(JSON.stringify(graph))) {
     hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
   }
-  const schema = { $id: `https://schema-calc.invalid/${hash.toString(16)}/`, ...emit(root) };
+  // The root refers to its body, a resource in root $defs, rather than holding it.
+  // Python's referencing looks up an embedded resource by crawling the document, and
+  // keeps what it found only below the reference that looked: one root reference lets
+  // every constraint share one crawl per validation, where each branch crawled before.
+  // The name has no letters, so no letter-named resource inside it ends with it.
+  const schema = { $schema, $id: `https://schema-calc.invalid/${hash.toString(16)}/`, title, $ref: BODY };
+  const body = { $id: BODY, ...emit(root) };
   // Moved pieces sit two levels down, in $defs, so every piece keeps that margin.
   // Bottom up, the tallest subschemas of an over-budget node move out first.
   const budget = maxDepth - 2, moved = {};
@@ -123,9 +130,9 @@ export function packResources(graph, { maxDepth = MAX_DEPTH, maxSubschemas = MAX
     if (size > maxSubschemas) throw new Error(`A schema node cannot fit within ${maxSubschemas} subschemas.`);
     return [result, size];
   }
-  fit(schema);
+  fit(body);
   Object.values(declared).forEach(fit);
-  if (Object.keys(declared).length || Object.keys(moved).length) schema.$defs = { ...declared, ...moved };
+  schema.$defs = { ...declared, ...moved, [BODY]: body };
   return { schema, resources: emitted.size + fresh };
 }
 

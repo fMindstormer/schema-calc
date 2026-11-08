@@ -25,7 +25,7 @@ The input stays a normal flat JSON object:
 
 JSON Schema has no built-in operator for adding values from different properties. Schema Calc compiles **bounded decimal equations and inequalities into a finite carry machine**, then expresses that machine using standard conditionals, digit patterns and references. The validator becomes the execution engine.
 
-The example schema is **41,364 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
+The example schema is **41,391 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
 **[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.3.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.3.0)**: the invoice schema, both records and a standalone Python validator.
 
@@ -124,7 +124,7 @@ const { schema, stats } = compile({
 
 A few validators refuse resources embedded inside other resources, which the default layout uses to save bytes. `--defs` on the command line, or `compile(spec, { layout: 'defs' })`, declares every shared resource in a root `$defs` instead, for 13–21% more bytes; the [compatibility table](compat/README.md) shows which validators need it. `compile(spec, { maxDepth, maxSubschemas, maxDefinitions })` changes the 32-level nesting limit, the limit of 2,000 subschemas between references and the budget of 40,000 definitions.
 
-A list reads each position through a `prefixItems` tuple that stops at that position. Ajv's default strict mode logs a warning for every such partial tuple, and `strict: true` refuses it; `new Ajv2020({ strictTuples: false })` keeps the other strict checks. No other tested validator objects.
+A list's sum reads each column through how many lines have each digit there, with `contains`, `minContains` and `maxContains`, rather than reading every line in turn. `compile(spec, { listSums: 'positions' })` reads each position instead, through a `prefixItems` tuple that stops at that position; Ajv's default strict mode logs a warning for every such partial tuple, and `strict: true` refuses it unless `strictTuples` is off.
 
 Ajv is a development dependency for the demo, tests and playground; it is not part of the compiler or the exported schema. See the runnable [JavaScript](examples/validate.mjs) and [Python](examples/validate.py) examples for the independent-validator handoff.
 
@@ -144,7 +144,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
 
-All declared fields except optional ones, and all lists, are required, and extra top-level properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Signed amounts make a schema about four times larger: 3.6–4.1 times for the shipped examples. Lists grow roughly with the square of their length, since every position is another digit to add in each column: `sum(lines) = subtotal` at the same precision is 9 kB for one line, 72 kB for 4, 386 kB for 10 and 1.4 MB for 20. Lines that are objects with an `amount` field cost 3–17% more. A constraint on each line is compiled once and applied to every line, so its size does not depend on the list's length: on its own, `lines.amount = lines.net + lines.tax` compiles to 20.5 kB for 4 lines or for 20. Nested objects other than list items, and custom arithmetic error messages, are outside the current compiler.
+All declared fields except optional ones, and all lists, are required, and extra top-level properties are rejected. With four integer digits and scale two, each value must be between `"0.00"` and `"9999.99"`, with exactly two fractional digits. Whitespace, trailing newlines and non-ASCII digits fail validation. Coefficients enlarge the schema: `total = k * price + shipping`, with four integer and two fractional digits, compiles to 21 kB with `k` = 1, 80 kB with 10, 401 kB with 100 and 751 kB with 1,000. A 40,000-definition budget can reject especially large contracts even within the syntax limits. The tally encoding repeats a field once per unit of its coefficient, so it refuses coefficients above 16. Signed amounts make a schema about four times larger: 3.6–4.7 times for the shipped examples. A list grows the schema faster than its length, because each column's sum can take more values: `sum(lines) = subtotal` at the same precision is 16 kB for one line, 72 kB for 4, 240 kB for 10 and 682 kB for 20. Lines that are objects with an `amount` field cost 3–13% more. A constraint on each line is compiled once and applied to every line, so its size does not depend on the list's length: on its own, `lines.amount = lines.net + lines.tax` compiles to 20.5 kB for 4 lines or for 20. Nested objects other than list items, and custom arithmetic error messages, are outside the current compiler.
 
 ## The computational model
 
@@ -192,13 +192,13 @@ The result is a standard [Compound Schema Document](https://json-schema.org/unde
 
 | Example | Whole-decimal baseline | Mixed-radix graph | Packed graph: current default |
 |---|---:|---:|---:|
-| Invoice | 284,300 B | 57,050 B | **41,364 B** |
-| Allocation | 94,025 B | 21,935 B | **16,447 B** |
-| Carry chain | 129,290 B | 28,167 B | **20,605 B** |
+| Invoice | 284,300 B | 57,050 B | **41,391 B** |
+| Allocation | 94,025 B | 21,935 B | **16,474 B** |
+| Carry chain | 129,290 B | 28,167 B | **20,632 B** |
 
-These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.5%** overall. The even split (`3 * share <= total`, `total < 3 * share + 0.03`) is 26,728 B, and the line items (`lines.amount = lines.net + lines.tax` and `sum(lines.amount) = total`, for up to four lines) 96,432 B; the earlier compilers predate coefficients, inequalities and lists. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
+These are compact UTF-8 JSON bytes, excluding the final newline, for identical contracts and domains. The invoice shrinks **85.4%** overall. The even split (`3 * share <= total`, `total < 3 * share + 0.03`) is 26,755 B, and the line items (`lines.amount = lines.net + lines.tax` and `sum(lines.amount) = total`, for up to four lines) 95,921 B; the earlier compilers predate coefficients, inequalities and lists. Frozen compilers and the [benchmark guide](bench/README.md) make the comparison reproducible.
 
-Version 0.1.0 emitted 41,232, 16,315 and 20,510 B. The current output spends 95 to 132 bytes more on an end-of-string check without lookahead and a 32-level nesting limit, so that validators in more languages load it; see the [compatibility table](compat/README.md). Timings and sizes recorded under `bench/` and in the experiment notes were measured on the 0.1.0 files.
+Version 0.1.0 emitted 41,232, 16,315 and 20,510 B. The current output spends 95 to 132 bytes more on an end-of-string check without lookahead and a 32-level nesting limit, so that validators in more languages load it, and 27 more on a root reference that lets Python `jsonschema` crawl the document once per validation; see the [compatibility table](compat/README.md) and [design.md](docs/design.md#graph-reduction-and-schema-packing). Timings and sizes recorded under `bench/` and in the experiment notes were measured on the 0.1.0 files.
 
 For one equation with `D` decimal positions and `N` non-cancelled fields, a selected path needs at most `4DN` digit predicates: one binary and at most three quinary decisions per field and position. The invoice's bound is 96. This counts abstract graph predicates, not validator instructions or elapsed time.
 

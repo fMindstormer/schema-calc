@@ -359,7 +359,7 @@ test('constraints on each line hold for every line, however long the list', () =
 
   const bounded = contract('bounded lines', { fields: [], lists: { lines: { maxItems: 3, fields: ['net', 'tax'] } }, integerDigits: 3, scale: 2,
     constraints: ['5 * lines.tax <= lines.net', 'lines.net > 0'] }, { tally: false });
-  assert.equal(corpus.at(-1).schema.allOf, undefined);
+  assert.equal(corpus.at(-1).schema.$defs._.allOf, undefined);
   bounded({ lines: [] }, true);
   for (let i = 0; i < 300; i++) {
     const items = Array.from({ length: 1 + random(997) % 3 }, () => {
@@ -462,8 +462,27 @@ test('signed and optional declarations', () => {
   assert.throws(() => compileTally({ ...base, signed: true }), /tally encoding does not support signed amounts/);
   assert.throws(() => compileTally({ ...base, optional: ['b'] }), /tally encoding does not support optional fields/);
   const { schema } = compile({ ...base, optional: ['b'], signed: true });
-  assert.deepEqual(schema.required, ['a']);
-  assert.match(schema.properties.a.pattern, /^\^-\?/);
+  assert.deepEqual(schema.$defs._.required, ['a']);
+  assert.match(schema.$defs._.properties.a.pattern, /^\^-\?/);
+});
+
+test('counting a list and reading its positions give the same verdicts', () => {
+  // The corpus uses the default, counting; reading positions stays an option.
+  const groups = corpus.filter(group => group.spec.lists && Object.keys(group.spec.lists).length);
+  for (const group of groups) {
+    const { schema } = compile(group.spec, { listSums: 'positions' });
+    assert.ok(JSON.stringify(schema).includes('prefixItems') || !group.spec.constraints.some(c => c.includes('sum(')), group.name);
+    const validate = new Ajv2020({ strict: true, strictTuples: false, inlineRefs: false }).compile(schema);
+    for (const { data, expected } of group.cases) assert.equal(validate(data), expected, `positions ${group.name}: ${JSON.stringify(data)}`);
+  }
+  assert.throws(() => compile(presets.lines.spec, { listSums: 'rows' }), /Unknown listSums: rows/);
+  // An absent list fails every count range; otherwise an anyOf of ranges would try every branch.
+  const { schema } = compile({ fields: ['total'], lists: { lines: 12 }, constraints: ['sum(lines) = total'], integerDigits: 3, scale: 2 });
+  assert.match(JSON.stringify(schema), /"anyOf"/);
+  const validate = new Ajv2020({ strict: true }).compile(schema);
+  const start = performance.now();
+  assert.equal(validate({ total: '0.00' }), false);
+  assert.ok(performance.now() - start < 1000);
 });
 
 test('list syntax and declarations', () => {
@@ -563,6 +582,10 @@ test('output is deterministic, standard, and bounded', () => {
   const text = JSON.stringify(first.schema);
   for (const extension of ['"$data"', '"$dynamicRef"', '"format"']) assert.ok(!text.includes(extension));
   assert.equal(first.stats.maxDigitTests, 96);
+  // The root holds only a reference to its body, so Python's referencing crawls once per validation.
+  assert.deepEqual(Object.keys(first.schema), ['$schema', '$id', 'title', '$ref', '$defs']);
+  assert.equal(first.schema.$ref, '_');
+  assert.equal(Object.keys(first.schema.$defs).at(-1), '_');
   // Default Ajv options must work too; inlineRefs:false is only a preparation-time preference.
   const validate = new Ajv2020().compile(first.schema);
   assert.equal(validate(presets.invoice.valid), true);
@@ -576,7 +599,7 @@ test('every reference resolves inside the self-contained standard schema documen
     const uris = new Set(resources.map(r => r.uri));
     assert.equal(uris.size, resources.length, 'embedded resource identities are unique');
     const keywords = new Set(['$schema', '$id', 'title', 'type', 'required', 'additionalProperties', 'properties', 'pattern', 'allOf', 'not', 'if', 'then', 'else', '$ref', '$comment', '$defs',
-      'minItems', 'maxItems', 'items', 'prefixItems']);
+      'minItems', 'maxItems', 'items', 'prefixItems', 'anyOf', 'contains', 'minContains', 'maxContains']);
     function walk(node, base = schema.$id) {
       if (typeof node === 'boolean') return;
       if (node.$id) base = new URL(node.$id, base).href;
@@ -587,8 +610,8 @@ test('every reference resolves inside the self-contained standard schema documen
           assert.ok(uri.startsWith(schema.$id));
           assert.ok(uris.has(uri), `unbundled reference ${uri}`);
         } else if (key === 'properties' || key === '$defs') Object.values(value).forEach(child => walk(child, base));
-        else if (key === 'allOf' || key === 'prefixItems') value.forEach(child => walk(child, base));
-        else if (['not', 'if', 'then', 'else', 'items'].includes(key)) walk(value, base);
+        else if (['allOf', 'anyOf', 'prefixItems'].includes(key)) value.forEach(child => walk(child, base));
+        else if (['not', 'if', 'then', 'else', 'items', 'contains'].includes(key)) walk(value, base);
       }
     }
     walk(schema);
@@ -601,7 +624,7 @@ test('flat schemas avoid regex lookaround and stay within parser depth and size 
   // Subschemas reachable without crossing a $ref, which Ajv compiles into one function.
   const region = node => !node || typeof node !== 'object' ? 1 : 1 + Object.entries(node).reduce((n, [key, value]) =>
     n + (['if', 'then', 'else', 'not', 'items'].includes(key) ? region(value)
-      : ['allOf', 'properties'].includes(key) ? Object.values(value).reduce((m, child) => m + region(child), 0) : 0), 0);
+      : ['allOf', 'anyOf', 'properties'].includes(key) ? Object.values(value).reduce((m, child) => m + region(child), 0) : 0), 0);
   const largestRegion = schema => Math.max(region(schema), ...Object.values(schema.$defs ?? {}).map(region));
   const patterns = new Set();
   for (const { name, schema } of corpus) {

@@ -25,7 +25,8 @@ function pattern(position, mask, scale) {
   return `${digitClass(mask)}${suffix}$`;
 }
 
-export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, maxDefinitions = MAX_DEFINITIONS, layout = 'embedded' } = {}) {
+export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, maxDefinitions = MAX_DEFINITIONS, layout = 'embedded', listSums = 'counts' } = {}) {
+  if (!['positions', 'counts'].includes(listSums)) throw new Error(`Unknown listSums: ${listSums}`);
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
   const equations = spec.constraints.map(source => parseConstraint(source, spec));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
@@ -107,8 +108,61 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     }
     return tree([...groups]);
   }
-  const machines = equations.map(({ source, terms, constant, relation }) => {
+  // Counting reads the digits of every line at one position through how many lines
+  // have them. A list's column sum depends only on those counts: Σ p = #(odd digits)
+  // for the radix-2 component, and Σ q = #(q odd) + 2#(q in 2..3) + 4#(q = 4) for
+  // q = floor(d / 2). Each mask excludes 0, so a missing item or digit counts as zero.
+  const COUNTED = [[[0b1010101010, 1]], [[0b0011001100, 1], [0b0011110000, 2], [0b1100000000, 4]]];
+  const countTests = new Map();
+  function countTest(list, member, sign, position, mask, low, high) {
+    const key = JSON.stringify([list, member, sign, position, mask, low, high]);
+    if (!countTests.has(key)) {
+      const string = { type: 'string', pattern: pattern(position, mask, spec.scale), ...(sign > 0 && spec.signed && { not: { pattern: '^-' } }), ...(sign < 0 && { allOf: [{ pattern: '^-' }] }) };
+      const item = member === undefined ? string : { type: 'object', properties: { [member]: string } };
+      // required keeps the ranges disjoint when the list is absent; otherwise every range
+      // would hold, and an anyOf would try each branch in turn, exponentially.
+      countTests.set(key, add({ type: 'object', required: [list], properties: { [list]: { type: 'array', contains: item, minContains: low, ...(high < spec.lists[list].maxItems && { maxContains: high }) } } }));
+    }
+    return countTests.get(key);
+  }
+  // Select the continuation for the count in one step: an anyOf of disjoint count
+  // ranges, each a conditional, so no validator descends into a branch that fails.
+  function countSwitch(list, member, sign, position, mask, children) {
+    const ranges = [];
+    children.forEach((child, count) => {
+      if (ranges.length && ranges.at(-1).child === child) ranges.at(-1).high = count;
+      else ranges.push({ low: count, high: count, child });
+    });
+    const live = ranges.filter(range => range.child !== false);
+    if (!live.length) return false;
+    if (live.length === 1 && ranges.length === 1) return live[0].child;
+    const test = ({ low, high }) => countTest(list, member, sign, position, mask, low, high);
+    if (live.length === 1) return decide(test(live[0]), live[0].child, false);
+    if (ranges.length === 2) return decide(test(ranges[0]), ranges[0].child, ranges[1].child);
+    const node = { anyOf: live.map(range => range.child === true ? ref(test(range)) : { if: ref(test(range)), then: ref(range.child), else: false }) };
+    const key = JSON.stringify(node);
+    if (!interned.has(key)) interned.set(key, add(node));
+    return interned.get(key);
+  }
+  const pathTests = [];
+  const machines = equations.map(({ source, terms: allTerms, constant, relation, each }) => {
     const memo = new Map(), exact = relation === '=';
+    // With listSums: 'counts', every position of a list field has the same coefficient,
+    // since only sum() reads them, and the positions become one counted term.
+    const listPosition = /^(.+?)\[(\d+)\](?:\.(.+))?$/;
+    const counted = listSums === 'counts' ? [...new Map(allTerms.filter(([field]) => listPosition.test(field)).map(([field, coefficient]) => {
+      const [, list, , member] = listPosition.exec(field);
+      const positions = allTerms.filter(([other]) => { const [, l, , m] = listPosition.exec(other) ?? []; return l === list && m === member; });
+      if (positions.length !== spec.lists[list].maxItems || positions.some(([, c]) => c !== coefficient)) throw new Error(`Every position of ${list} must have the same coefficient.`);
+      return [`${list}.${member}`, { list, member, coefficient }];
+    })).values()] : [];
+    const terms = counted.length ? allTerms.filter(([field]) => !listPosition.test(field)) : allTerms;
+    const steps = RADICES.map((_, stage) => [...terms.map(([field, coefficient]) => ({ field, coefficient })),
+      ...counted.flatMap(({ list, member, coefficient }) => COUNTED[stage].flatMap(([mask, weight]) =>
+        (spec.signed ? [1, -1] : [1]).map(sign => ({ list, member, mask, sign, coefficient: coefficient * weight }))))]);
+    // At most one test per binary decision on a digit, plus its sign; a count may try every range.
+    pathTests.push(width * (each ? spec.lists[each].maxItems : 1) * steps.reduce((n, stageSteps, stage) => n + stageSteps.reduce((m, step) =>
+      m + (step.list ? spec.lists[step.list].maxItems + 1 : Math.ceil(Math.log2(RADICES[stage])) + (spec.signed ? 1 : 0)), 0), 0));
     const digits = (constant < 0n ? -constant : constant).toString()
       .padStart(width, '0').split('').reverse()
       .map(d => Number(d) * (constant < 0n ? -1 : 1));
@@ -125,7 +179,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       // d = (d mod 2) + 2 floor(d/2). Requiring divisibility by 2 and then
       // by 5 is exactly the original decimal-column divisibility test.
       const radix = RADICES[stage];
-      if (operand === terms.length) {
+      if (operand === steps[stage].length) {
         // The rest of the sum is a multiple of radix. An equality needs this stage to
         // divide exactly. For S <= 0, write balance = radix q + r with 0 <= r < radix:
         // r only matters through r > 0, so carry ceil(balance / radix).
@@ -134,8 +188,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
           const carry = exact ? balance / radix : Math.ceil(balance / radix);
           result = stage === RADICES.length - 1 ? build(position + 1, 0, 0, carry) : build(position, stage + 1, 0, carry);
         }
+      } else if (steps[stage][operand].list) {
+        const { list, member, mask, sign, coefficient } = steps[stage][operand];
+        result = countSwitch(list, member, sign, position, mask, Array.from({ length: spec.lists[list].maxItems + 1 }, (_, count) =>
+          build(position, stage, operand + 1, balance + sign * coefficient * count)));
       } else {
-        const [field, coefficient] = terms[operand];
+        const { field, coefficient } = steps[stage][operand];
         const divisor = RADICES.slice(0, stage).reduce((a, b) => a * b, 1);
         const read = sign => choose(field, position, Array.from({ length: radix }, (_, d) =>
           build(position, stage, operand + 1, balance + sign * coefficient * d)), divisor, radix);
@@ -241,15 +299,13 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   };
   const { schema, resources } = packResources(graph, { maxDepth, maxSubschemas, layout });
   const decisionIds = new Set(interned.values());
-  // A signed amount adds one sign test to each of a digit's stages.
-  const testsPerDigit = RADICES.reduce((n, radix) => n + Math.ceil(Math.log2(radix)) + (spec.signed ? 1 : 0), 0);
   return { schema, stats: {
     bytes: new TextEncoder().encode(JSON.stringify(schema)).length,
     definitions: resources,
     decisionNodes: [...live].filter(id => decisionIds.has(id)).length,
     predicates: [...predicates.values()].filter(id => live.has(id)).length,
     exploredStates: states,
-    maxDigitTests: equations.reduce((n, { terms, each }) => n + width * terms.length * testsPerDigit * (each ? spec.lists[each].maxItems : 1), 0)
+    maxDigitTests: pathTests.reduce((a, b) => a + b, 0)
   } };
 }
 

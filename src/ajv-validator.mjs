@@ -5,8 +5,9 @@ import { schemaResources } from './resources.mjs';
  * This only controls Ajv's compilation order; Ajv performs all record validation.
  */
 export function prepareValidator(schema) {
-  // A list position is read through a partial prefixItems tuple, by design; Ajv's
-  // strict mode refuses those unless strictTuples is off. Other strict checks stay on.
+  // With listSums: 'positions', a list position is read through a partial prefixItems
+  // tuple; Ajv's strict mode refuses those unless strictTuples is off. Other strict
+  // checks stay on.
   const ajv = new Ajv2020({ strict: true, strictTuples: false, inlineRefs: false });
   // Tally schemas use a small recursive $defs graph and need no resource packing.
   if (!schema.$id) return ajv.compile(schema);
