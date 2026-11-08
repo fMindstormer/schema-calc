@@ -11,8 +11,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    # Python's lazily built validators spend 8 to 13 minutes on the flat corpus here.
-    timeout-minutes: 40
+    # The job takes about 11 minutes on Node 24, 5 of them in the Python cross-check.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
