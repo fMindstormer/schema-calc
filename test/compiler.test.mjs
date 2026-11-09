@@ -8,7 +8,7 @@ import { presets } from '../src/presets.mjs';
 import { schemaResources, MAX_DEPTH, MAX_SUBSCHEMAS } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
 import { compileTally, encodeTally, decodeTally, MAX_TALLY_COPIES } from '../src/tally.mjs';
-import { parseEquation, parseConstraint, normalizeSpec } from '../src/syntax.mjs';
+import { parseEquation, parseConstraint, parseRule, normalizeSpec } from '../src/syntax.mjs';
 
 const corpus = [];
 const tallyCorpus = [];
@@ -431,6 +431,58 @@ test('optional fields count as zero when absent', () => {
   for (let a = 0; a < 100; a += 7) for (const b of [undefined, a - 1, a]) if (b === undefined || b >= 0) {
     unsigned(b === undefined ? { a: String(a) } : { a: String(a), b: String(b) }, a >= (b ?? 0) + 1);
   }
+});
+
+test('and, or, has and no combine relations with presence', () => {
+  const check = contract('and, or, has and no', { fields: ['t', 'u', 'v'], optional: ['t', 'u'], lists: { xs: 2 }, integerDigits: 1, scale: 0,
+    constraints: ['has t and t = sum(xs) or no t and no xs', 'no u or u + v = 9', 'v = t + 1 or v = 0 and has u'] }, { tally: false });
+  // An independent oracle: an absent field is undefined, and arithmetic reads it as zero.
+  const holds = ({ t, u, v, xs }) => {
+    const sum = xs.reduce((a, b) => a + b, 0);
+    return (t !== undefined && t === sum || t === undefined && !xs.length) && (u === undefined || u + v === 9) && (v === (t ?? 0) + 1 || v === 0 && u !== undefined);
+  };
+  const verdicts = [];
+  for (let i = 0; i < 600; i++) {
+    // A record that holds, then about half the time one value changed, added or removed.
+    const xs = Array.from({ length: random(3) }, () => random(5)), sum = xs.reduce((a, b) => a + b, 0);
+    let t = xs.length || random(2) ? sum : undefined, v = random(2) ? (t ?? 0) + 1 : 0, u = v === 0 || random(2) ? 9 - v : undefined;
+    const change = random(8);
+    if (change === 0) t = t === undefined ? random(10) : undefined;
+    if (change === 1) u = u === undefined ? random(10) : undefined;
+    if (change === 2) v = random(10);
+    if (change === 3 && t !== undefined) t = (t + 1) % 10;
+    const record = { v: String(v), xs: xs.map(String), ...(t !== undefined && { t: String(t) }), ...(u !== undefined && { u: String(u) }) };
+    verdicts.push(holds({ t, u, v, xs }));
+    check(record, verdicts.at(-1));
+  }
+  assert.ok(verdicts.filter(Boolean).length > 100 && verdicts.filter(v => !v).length > 100);
+  check({ v: '1', xs: [] }, true);
+  check({ v: '1', xs: [], t: '0' }, true);
+  check({ v: '1', xs: ['0'] }, false);
+  check({ v: '0', xs: [], u: '9' }, true);
+  check({ v: '0', xs: [], u: '8' }, false);
+});
+
+test('and, or, has and no: syntax and refusals', () => {
+  const spec = normalizeSpec({ fields: ['t', 'v', 'order', 'norm'], optional: ['t'], lists: { xs: 2, lines: { maxItems: 2, fields: ['a', 'b'] } }, constraints: ['v = 0'] });
+  const shape = source => parseRule(source, spec).clauses.map(atoms => atoms.map(atom => atom.terms ? atom.source : atom));
+  assert.deepEqual(shape('v = 1 or v = 2 and has t'), [['v = 1'], ['v = 2', { has: 't' }]]);
+  assert.deepEqual(shape('order = norm or no xs and has lines'), [['order = norm'], [{ no: 'xs' }, { has: 'lines' }]]);
+  assert.deepEqual(shape('  order = norm '), [['  order = norm ']]);
+  assert.equal(parseRule('lines.a = lines.b', spec).each, 'lines');
+  for (const [source, message] of [['has v', /v is always present/], ['no w', /Unknown field: w/], ['has t + 1', /Write has or no before one optional field or list/],
+    ['v = 1 or', /each side of and and or/], ['and v = 1', /each side of and and or/], ['lines.a = lines.b or v = 1', /each line of lines is one relation/],
+    [Array.from({ length: 9 }, (_, i) => `v = ${i}`).join(' or '), /at most 8 relations and tests/], ['v = 1 or v == 2', /found "="/]]) {
+    assert.throws(() => parseRule(source, spec), message, source);
+  }
+  for (const names of [{ fields: ['no'] }, { fields: ['a'], lists: { and: 2 } }, { fields: ['a'], lists: { lines: { maxItems: 2, fields: ['has'] } } }]) {
+    assert.throws(() => normalizeSpec({ ...names, constraints: ['a = 0'] }), /words of the constraint language/, JSON.stringify(names));
+  }
+  assert.throws(() => compileTally({ fields: ['a', 'b'], constraints: ['a = b or a = 0'] }), /one relation per constraint/);
+  // Only a constraint that uses them changes shape.
+  const plain = compile({ fields: ['a', 'b'], constraints: ['a = b'] }).schema.$defs._.allOf[0];
+  assert.deepEqual(Object.keys(plain), ['$comment', 'allOf']);
+  assert.equal(plain.allOf.length, 1);
 });
 
 test('signed lists, sums and constraints on each line', () => {

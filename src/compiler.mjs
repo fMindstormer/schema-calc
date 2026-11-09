@@ -1,4 +1,4 @@
-import { normalizeSpec, parseConstraint, amountSchema, DRAFT } from './syntax.mjs';
+import { normalizeSpec, parseRule, amountSchema, DRAFT } from './syntax.mjs';
 import { packResources, MAX_DEPTH, MAX_SUBSCHEMAS } from './resources.mjs';
 
 const RADICES = [2, 5];
@@ -28,7 +28,9 @@ function pattern(position, mask, scale) {
 export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSCHEMAS, maxDefinitions = MAX_DEFINITIONS, layout = 'embedded', listSums = 'counts' } = {}) {
   if (!['positions', 'counts'].includes(listSums)) throw new Error(`Unknown listSums: ${listSums}`);
   const spec = normalizeSpec(input), width = spec.integerDigits + spec.scale;
-  const equations = spec.constraints.map(source => parseConstraint(source, spec));
+  const rules = spec.constraints.map(source => parseRule(source, spec));
+  // Every relation is a machine of its own; and, or, has and no combine them below.
+  const equations = rules.flatMap(({ clauses }) => clauses.flat().filter(atom => atom.terms));
   const definitions = new Map(), predicates = new Map(), interned = new Map();
   let count = 0, states = 0;
   const ref = id => typeof id === 'boolean' ? id : { $ref: `#/$defs/${id}` };
@@ -145,7 +147,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     return interned.get(key);
   }
   const pathTests = [];
-  const machines = equations.map(({ source, terms: allTerms, constant, relation, each }) => {
+  function machine({ terms: allTerms, constant, relation, each }) {
     const memo = new Map(), exact = relation === '=';
     // With listSums: 'counts', every position of a list field has the same coefficient,
     // since only sum() reads them, and the positions become one counted term.
@@ -204,12 +206,29 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       memo.set(key, result);
       return result;
     }
-    return { $comment: source, allOf: [ref(build(0, 0, 0, 0))] };
+    return build(0, 0, 0, 0);
+  }
+  const machines = new Map(equations.map(equation => [equation, machine(equation)]));
+  // has and no read only presence: of an optional field, or of any item of a list.
+  const presence = ({ has, no }) => {
+    const name = has ?? no;
+    if (Object.hasOwn(spec.lists, name)) return { properties: { [name]: { type: 'array', ...(has ? { minItems: 1 } : { maxItems: 0 }) } } };
+    // Naming the field in properties too keeps Ajv's strictRequired satisfied.
+    const present = { required: [name], properties: { [name]: true } };
+    return has ? present : { not: present };
+  };
+  // A disjunction is an anyOf of its clauses, and a clause an allOf of its atoms,
+  // presence tests first, since they fail fastest.
+  const clause = atoms => [...atoms.filter(atom => !atom.terms), ...atoms.filter(atom => atom.terms)]
+    .map(atom => atom.terms ? ref(machines.get(atom)) : presence(atom));
+  const tops = rules.map(({ source, clauses }) => {
+    if (clauses.length === 1) return { $comment: source, allOf: clause(clauses[0]) };
+    return { $comment: source, anyOf: clauses.map(atoms => { const parts = clause(atoms); return parts.length === 1 ? parts[0] : { allOf: parts }; }) };
   });
   // A constraint on each line is one machine over the line's fields, applied to every
   // item of the list, so it does not grow with the list's length.
-  const roots = machines.filter((_, i) => !equations[i].each);
-  const lineRoots = list => machines.filter((_, i) => equations[i].each === list);
+  const roots = tops.filter((_, i) => !rules[i].each);
+  const lineRoots = list => tops.filter((_, i) => rules[i].each === list);
 
   // Count incoming references once per live definition, rather than once per
   // expanded path. This is the graph's initial physical reference count.
@@ -229,7 +248,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       else visit(value);
     }
   }
-  machines.forEach(visit);
+  tops.forEach(visit);
   const inline = new Set();
   function childRefs(node, action) {
     if (!node || typeof node !== 'object') return;
@@ -309,4 +328,4 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   } };
 }
 
-export { normalizeSpec, parseEquation, parseConstraint, amountPattern, amountSchema, DRAFT } from './syntax.mjs';
+export { normalizeSpec, parseEquation, parseConstraint, parseRule, amountPattern, amountSchema, DRAFT } from './syntax.mjs';

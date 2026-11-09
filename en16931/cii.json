@@ -1,0 +1,23 @@
+{
+  "title": "EN 16931 document totals, BR-CO-10 to BR-CO-16, as the CII Schematron checks them",
+  "integerDigits": 6,
+  "scale": 2,
+  "signed": true,
+  "fields": ["lineNetTotal", "allowanceTotal", "chargeTotal", "totalWithoutVat", "vatTotal", "totalWithVat", "paidAmount", "roundingAmount", "amountDue"],
+  "optional": ["allowanceTotal", "chargeTotal", "vatTotal", "paidAmount", "roundingAmount"],
+  "lists": {
+    "lines": { "maxItems": 20, "fields": ["netAmount"] },
+    "allowances": { "maxItems": 5, "fields": ["amount"] },
+    "charges": { "maxItems": 5, "fields": ["amount"] },
+    "vatBreakdown": { "maxItems": 5, "fields": ["taxAmount"] }
+  },
+  "constraints": [
+    "lineNetTotal = sum(lines.netAmount)",
+    "has allowanceTotal and allowanceTotal = sum(allowances.amount) or no allowanceTotal and no allowances",
+    "has chargeTotal and chargeTotal = sum(charges.amount) or no chargeTotal and no charges",
+    "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
+    "no vatTotal or vatTotal = sum(vatBreakdown.taxAmount)",
+    "has vatTotal and totalWithVat = totalWithoutVat + vatTotal or totalWithVat = totalWithoutVat",
+    "amountDue = totalWithVat - paidAmount + roundingAmount"
+  ]
+}

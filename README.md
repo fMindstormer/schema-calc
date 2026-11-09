@@ -87,7 +87,7 @@ Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one
 
 A schema can travel with a dataset, configuration file or API contract. Schema Calc lets that artifact carry exact reconciliation rules too: totals, percentage budgets, balances, or quantities that must add up. A receiving system needs a compatible Draft 2020-12 validator, rather than an implementation of each rule in each host language.
 
-Seven of the document-total rules of EN 16931, the European e-invoicing standard, BR-CO-10 to BR-CO-16, compile into one schema. On the official example invoices and one-cent changes of them, it gives the official Schematron's verdict on all but six of 475, all explained by two leniencies in the CII binding; see [EN 16931 totals in plain JSON Schema](docs/en16931.md).
+Seven of the document-total rules of EN 16931, the European e-invoicing standard, BR-CO-10 to BR-CO-16, compile into one schema for each of its two syntaxes, stating each rule as the official Schematron checks it. On the official example invoices and 610 changed copies of them, the schemas give the Schematron's verdict on all 644, rule by rule; see [EN 16931 totals in plain JSON Schema](docs/en16931.md).
 
 This is a research prototype with a working compiler, CLI and playground. Its advantage is the portable contract. A handwritten arithmetic check is much smaller and usually faster when you control the receiving application. Schema Calc checks a supplied answer; it does not fill in a missing total.
 
@@ -133,7 +133,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 | Supported | Boundary |
 |---|---|
 | Field names, decimal constants, `+`, `-` | No division or parentheses |
-| `=`, `<=`, `>=`, `<`, `>` | One relation per constraint; no chains such as `a <= b <= c`, and no `!=` |
+| `=`, `<=`, `>=`, `<`, `>` | No chains such as `a <= b <= c`, and no `!=` |
 | Lists of amounts, `"lists": {"lines": 10}`, summed with `sum(lines)` | Up to 4 lists of up to 20 items; a missing item counts as zero in a sum; no indexing, and no tally encoding |
 | Lists of objects, `"lines": {"maxItems": 10, "fields": ["net", "tax"]}`, summed with `sum(lines.net)` | Up to 4 amount fields per item, each required; other item properties, such as a description, are allowed |
 | Constraints on each line, `lines.amount = lines.net + lines.tax` | Lists of objects only; one line's fields and constants, not top-level fields, sums or other lines |
@@ -141,6 +141,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 | Repeated terms, unary signs, several constraints at once | Up to 16 fields, 8 constraints and 16 source terms per constraint |
 | Exact decimal **strings**, nonnegative unless `"signed": true` allows a leading minus sign | No JSON numbers, plus signs, exponents or leading zeroes; no tally encoding for signed amounts |
 | Optional fields, `"optional": ["paid"]`, which count as zero when absent | Top-level fields only; no tally encoding |
+| Relations joined by `and` and `or`, and `has paid` or `no paid` for an optional field or a list: `has paid and due = total - paid or no paid and due = total` | `and` binds first; no parentheses or `not`; up to 8 relations and tests per constraint, not on each line; `and`, `or`, `has` and `no` cannot name fields; no tally encoding |
 | Shared precision across fields | 1–10 integer digits, 0–4 fractional digits, at most 12 total digits |
 | Signed intermediate balances and constants | Overflow and negative results never wrap around |
 
@@ -233,11 +234,11 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 48 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 50 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
-| Original flat input | 42,714 | 84 |
+| Original flat input | 43,319 | 85 |
 | Tally input, including malformed encodings | 31,521 | 67 |
 | Six experimental optimizer profiles | 146,868 | 204 |
 | Exhaustive local optimizer fixtures | 22,828 | 1,328 |
@@ -246,7 +247,7 @@ The same flat, tally and example suites also run through ten more validators in 
 
 Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
 
-Coverage includes exhaustive small additions and comparisons, lists of every length up to their maximum, including empty and malformed lists and lines with other properties, constraints on each line, every one-digit signed sum, signed bounds and malformed signs, absent and explicit optional terms, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the Node suites and build on Node 20 and 24, the Python suites once, and the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change. [Release links](.github/workflows/release-links.yml) fails if the release this README links is missing or lacks a file it downloads.
+Coverage includes exhaustive small additions and comparisons, lists of every length up to their maximum, including empty and malformed lists and lines with other properties, constraints on each line, every one-digit signed sum, signed bounds and malformed signs, absent and explicit optional terms, relations joined by `and` and `or` with presence tests against an independent oracle, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the Node suites and build on Node 20 and 24, the Python suites once, and the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change. [Release links](.github/workflows/release-links.yml) fails if the release this README links is missing or lacks a file it downloads.
 
 ## Explore the project
 

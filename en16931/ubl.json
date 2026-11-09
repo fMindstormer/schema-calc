@@ -1,5 +1,5 @@
 {
-  "title": "EN 16931 document totals: BR-CO-10 to BR-CO-16",
+  "title": "EN 16931 document totals, BR-CO-10 to BR-CO-16, as the UBL Schematron checks them",
   "integerDigits": 6,
   "scale": 2,
   "signed": true,
@@ -13,11 +13,11 @@
   },
   "constraints": [
     "lineNetTotal = sum(lines.netAmount)",
-    "allowanceTotal = sum(allowances.amount)",
-    "chargeTotal = sum(charges.amount)",
+    "has allowanceTotal and allowanceTotal = sum(allowances.amount) or no allowanceTotal and no allowances",
+    "has chargeTotal and chargeTotal = sum(charges.amount) or no chargeTotal and no charges",
     "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
-    "vatTotal = sum(vatBreakdown.taxAmount)",
-    "totalWithVat = totalWithoutVat + vatTotal",
+    "no vatBreakdown or vatTotal = sum(vatBreakdown.taxAmount)",
+    "has vatTotal and totalWithVat = totalWithoutVat + vatTotal",
     "amountDue = totalWithVat - paidAmount + roundingAmount"
   ]
 }

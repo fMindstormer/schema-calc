@@ -108,7 +108,10 @@ worker.onmessage = ({ data }) => {
   if (data.valid) setState('valid', 'Record accepted', 'Every field has the right format, and every declared equation holds.');
   else {
     // Format checks sit under properties and items; the constraints on each line sit in the items' allOf.
-    const shapeError = data.errors.find(e => ['type', 'required', 'additionalProperties'].includes(e.keyword) || (e.keyword === 'pattern' && e.schemaPath.startsWith('#/properties/') && !e.schemaPath.includes('/allOf/')));
+    // An optional field is required only inside a constraint, by has or an arithmetic test.
+    const optional = new Set(JSON.parse($('contract').value).optional ?? []);
+    const shapeError = data.errors.find(e => ['type', 'additionalProperties'].includes(e.keyword) || (e.keyword === 'required' && !optional.has(e.params.missingProperty)) ||
+      (e.keyword === 'pattern' && e.schemaPath.startsWith('#/properties/') && !e.schemaPath.includes('/allOf/')));
     setState('invalid', 'Record rejected', shapeError ? `${shapeError.instancePath || 'Record'} ${shapeError.message}.` : 'A declared equation or field format does not hold. The generated schema rejected this record.');
     $('error-details').hidden = false;
     $('validator-errors').textContent = JSON.stringify(data.errors, null, 2);

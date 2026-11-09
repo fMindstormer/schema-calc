@@ -1,5 +1,6 @@
 """Convert EN 16931 invoices in UBL or CII syntax to the flat JSON form that
-en16931/contract.json describes, and write one-cent changes of them.
+en16931/ubl.json and en16931/cii.json describe, and write changed copies of them:
+with amounts raised by one cent, or optional elements removed.
 
   python3 -I en16931/convert.py json INVOICE.xml          # prints the JSON form
   python3 -I en16931/convert.py lines < PATHS              # one JSON form per line
@@ -55,8 +56,8 @@ def indicator(text):
 
 
 def elements(root):
-    """Map each business term to the XML elements that hold it, and each list to the
-    elements of its items: (identifier, amount element) pairs."""
+    """Map each business term to the XML elements that hold it, and each list to its
+    items: (identifier, amount element, item element) triples."""
     if root.tag.endswith('}CrossIndustryInvoice'):
         settlement = root.find(f'{RSM}SupplyChainTradeTransaction/{RAM}ApplicableHeaderTradeSettlement')
         currency = settlement.findtext(f'{RAM}InvoiceCurrencyCode', '').strip()
@@ -67,11 +68,11 @@ def elements(root):
         allowances = settlement.findall(f'{RAM}SpecifiedTradeAllowanceCharge')
         lists = {
             'lines': [(item.findtext(f'{RAM}AssociatedDocumentLineDocument/{RAM}LineID'),
-                       item.find(f'{RAM}SpecifiedLineTradeSettlement/{RAM}SpecifiedTradeSettlementLineMonetarySummation/{RAM}LineTotalAmount'))
+                       item.find(f'{RAM}SpecifiedLineTradeSettlement/{RAM}SpecifiedTradeSettlementLineMonetarySummation/{RAM}LineTotalAmount'), item)
                       for item in root.findall(f'{RSM}SupplyChainTradeTransaction/{RAM}IncludedSupplyChainTradeLineItem')],
-            'allowances': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount')) for e in allowances if charge(e) is False],
-            'charges': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount')) for e in allowances if charge(e) is True],
-            'vatBreakdown': [(e.findtext(f'{RAM}CategoryCode'), e.find(f'{RAM}CalculatedAmount')) for e in settlement.findall(f'{RAM}ApplicableTradeTax')],
+            'allowances': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount'), e) for e in allowances if charge(e) is False],
+            'charges': [(e.findtext(f'{RAM}ReasonCode'), e.find(f'{RAM}ActualAmount'), e) for e in allowances if charge(e) is True],
+            'vatBreakdown': [(e.findtext(f'{RAM}CategoryCode'), e.find(f'{RAM}CalculatedAmount'), e) for e in settlement.findall(f'{RAM}ApplicableTradeTax')],
         }
         return 'CII', terms, lists
     currency = root.findtext(f'{CBC}DocumentCurrencyCode', '').strip()
@@ -81,11 +82,11 @@ def elements(root):
     terms['vatTotal'] = [e.find(f'{CBC}TaxAmount') for e in vat]
     adjustments = root.findall(f'{CAC}AllowanceCharge')
     lists = {
-        'lines': [(line.findtext(f'{CBC}ID'), line.find(f'{CBC}LineExtensionAmount'))
+        'lines': [(line.findtext(f'{CBC}ID'), line.find(f'{CBC}LineExtensionAmount'), line)
                   for line in root.findall(f'{CAC}InvoiceLine') + root.findall(f'{CAC}CreditNoteLine')],
-        'allowances': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount')) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is False],
-        'charges': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount')) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is True],
-        'vatBreakdown': [(e.findtext(f'{CAC}TaxCategory/{CBC}ID'), e.find(f'{CBC}TaxAmount')) for total in vat[:1] for e in total.findall(f'{CAC}TaxSubtotal')],
+        'allowances': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount'), e) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is False],
+        'charges': [(e.findtext(f'{CBC}AllowanceChargeReasonCode'), e.find(f'{CBC}Amount'), e) for e in adjustments if indicator(e.findtext(f'{CBC}ChargeIndicator')) is True],
+        'vatBreakdown': [(e.findtext(f'{CAC}TaxCategory/{CBC}ID'), e.find(f'{CBC}TaxAmount'), e) for total in vat[:1] for e in total.findall(f'{CAC}TaxSubtotal')],
     }
     return 'UBL', terms, lists
 
@@ -108,15 +109,19 @@ def to_json(root):
     for name, items in lists.items():
         field, label = LISTS[name]
         record[name] = [{**({label: key.strip()} if key is not None else {}), field: amount(value.text) if value is not None else None}
-                        for key, value in items]
+                        for key, value, _ in items]
     return record
 
 
-# Each change adds one cent to the named terms. Pairs keep one rule true while breaking another.
+# Each change adds one cent to the named terms, or removes those written -name: an
+# optional total, or every item of a list. Pairs keep one rule true while breaking another.
 CHANGES = [['lineNetTotal'], ['allowanceTotal'], ['chargeTotal'], ['totalWithoutVat'], ['vatTotal'], ['totalWithVat'],
            ['paidAmount'], ['roundingAmount'], ['amountDue'], ['lines'], ['allowances'], ['charges'], ['vatBreakdown'],
            ['lines', 'lineNetTotal'], ['allowances', 'allowanceTotal'], ['charges', 'chargeTotal'], ['vatBreakdown', 'vatTotal'],
-           ['totalWithVat', 'amountDue'], ['totalWithoutVat', 'totalWithVat', 'amountDue']]
+           ['totalWithVat', 'amountDue'], ['totalWithoutVat', 'totalWithVat', 'amountDue'],
+           ['-allowanceTotal'], ['-chargeTotal'], ['-vatTotal'], ['-paidAmount'], ['-roundingAmount'],
+           ['-allowances'], ['-charges'], ['-vatBreakdown'],
+           ['-allowances', '-allowanceTotal'], ['-charges', '-chargeTotal'], ['-vatBreakdown', '-vatTotal']]
 
 
 def mutate(path, outdir):
@@ -126,13 +131,23 @@ def mutate(path, outdir):
     written = []
     for change in CHANGES:
         tree = ET.parse(path)
-        _, terms, lists = elements(tree.getroot())
-        # A list's change raises its first item.
-        targets = [(lists[name][:1] or [(None, None)])[0][1] if name in lists else (terms.get(name) or [None])[0] for name in change]
-        if any(target is None for target in targets) or ('vatTotal' in change and len(terms['vatTotal']) != 1):
-            continue
-        for target in targets:
-            target.text = str(Decimal(target.text.strip()) + Decimal('0.01'))
+        syntax, terms, lists = elements(tree.getroot())
+        parent = {child: node for node in tree.getroot().iter() for child in node}
+        if all(name.startswith('-') for name in change):
+            # Removing a UBL VAT total removes its TaxTotal, which the XML schema requires to have one.
+            removed = [[item for _, _, item in lists[name[1:]]] if name[1:] in lists
+                       else [parent[e] if syntax == 'UBL' and name == '-vatTotal' else e for e in terms[name[1:]]] for name in change]
+            if not all(removed):
+                continue
+            for element in [e for group in removed for e in group]:
+                parent[element].remove(element)
+        else:
+            # A list's change raises its first item.
+            targets = [(lists[name][:1] or [(None, None, None)])[0][1] if name in lists else (terms.get(name) or [None])[0] for name in change]
+            if any(target is None for target in targets) or ('vatTotal' in change and len(terms['vatTotal']) != 1):
+                continue
+            for target in targets:
+                target.text = str(Decimal(target.text.strip()) + Decimal('0.01'))
         out = Path(outdir) / f'{Path(path).stem}+{"+".join(change)}.xml'
         tree.write(out, encoding='utf-8', xml_declaration=True)
         written.append(str(out))

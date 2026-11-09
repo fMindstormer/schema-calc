@@ -2,6 +2,11 @@
 export const DRAFT = 'https://json-schema.org/draft/2020-12/schema';
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const RESERVED = new Set(['__proto__', 'prototype', 'constructor']);
+// Words of the constraint language cannot name a field, a list or a line's field.
+const KEYWORDS = new Set(['and', 'or', 'has', 'no']);
+function checkKeyword(name) {
+  if (KEYWORDS.has(name)) throw new Error(`and, or, has and no are words of the constraint language; rename ${name}.`);
+}
 
 function requireInteger(value, min, max, label) {
   if (!Number.isInteger(value) || value < min || value > max) {
@@ -30,6 +35,7 @@ function normalizeList(name, value) {
   if (fields.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f)) || new Set(fields).size !== fields.length) {
     throw new Error(`The fields of ${name} must be unique simple identifiers.`);
   }
+  fields.forEach(checkKeyword);
   return { maxItems: value.maxItems, fields: [...fields] };
 }
 
@@ -48,6 +54,7 @@ export function normalizeSpec(spec) {
   const names = [...fields, ...listNames];
   if (names.some(f => typeof f !== 'string' || !IDENTIFIER.test(f) || RESERVED.has(f))) throw new Error('Fields and lists must be simple identifiers; reserved object names are disallowed.');
   if (new Set(names).size !== names.length) throw new Error('Field and list names must be unique.');
+  names.forEach(checkKeyword);
   if (!Array.isArray(constraints) || constraints.length < 1 || constraints.length > 8) throw new Error('Declare between 1 and 8 equations.');
   if (typeof title !== 'string' || title.length > 200) throw new Error('title must be a string of at most 200 characters.');
   if (typeof signed !== 'boolean') throw new Error('signed must be true or false.');
@@ -175,6 +182,40 @@ export function parseConstraint(source, spec) {
     constant: BigInt(sign) * constant + (relation === '<' || relation === '>' ? 1n : 0n),
     ...(each && { each })
   };
+}
+
+export const MAX_ATOMS = 8;
+
+/** A constraint is one relation, or relations and presence tests joined by and and
+ * or. and binds first: a or b and c means a, or both b and c. has x holds when the
+ * optional field x is present, or when the list x has an item; no x when it does not.
+ * A relation still counts an absent optional field as zero. Returns the clauses of
+ * the disjunction, each a list of atoms: a parsed relation, or { has } or { no }.
+ */
+export function parseRule(source, spec) {
+  if (typeof source !== 'string' || source.length > 500) throw new Error('An equation must be a string of at most 500 characters.');
+  const parts = source.split(/\bor\b/).map(clause => clause.split(/\band\b/));
+  if (parts.length === 1 && parts[0].length === 1 && !/\b(?:has|no)\b/.test(source)) {
+    const relation = parseConstraint(source, spec);
+    return { source, clauses: [[relation]], ...(relation.each && { each: relation.each }) };
+  }
+  if (parts.flat().length > MAX_ATOMS) throw new Error(`A constraint may join at most ${MAX_ATOMS} relations and tests.`);
+  const clauses = parts.map(clause => clause.map(text => {
+    if (!text.trim()) throw new Error(`Write a relation or a test on each side of and and or: ${source}`);
+    const test = /^\s*(has|no)\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(text);
+    if (!test) {
+      if (/\b(?:has|no)\b/.test(text)) throw new Error(`Write has or no before one optional field or list; found ${text.trim()}.`);
+      const relation = parseConstraint(text.trim(), spec);
+      if (relation.each) throw new Error(`A constraint on each line of ${relation.each} is one relation; it cannot use and, or, has or no.`);
+      return relation;
+    }
+    const [, word, name] = test;
+    if (!Object.hasOwn(spec.lists, name) && !(spec.optional ?? []).includes(name)) {
+      throw new Error(spec.fields.includes(name) ? `${name} is always present; has and no test an optional field or a list.` : `Unknown field: ${name}`);
+    }
+    return { [word]: name };
+  }));
+  return { source, clauses };
 }
 
 /** Equations only. The frozen benchmark compilers read every result as an equality. */

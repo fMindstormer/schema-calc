@@ -1,4 +1,4 @@
-import { normalizeSpec, parseConstraint, DRAFT } from './syntax.mjs';
+import { normalizeSpec, parseRule, DRAFT } from './syntax.mjs';
 import { encodeColumns, decodeColumns } from './decimal-columns.mjs';
 
 const ref = id => ({ $ref: `#/$defs/${id}` });
@@ -17,7 +17,10 @@ function layout(input) {
   // Its digit blocks have no sign, and every field is a fixed block of the record.
   if (spec.signed) throw new Error('The tally encoding does not support signed amounts; use the flat encoding.');
   if (spec.optional) throw new Error('The tally encoding does not support optional fields; use the flat encoding.');
-  const equations = spec.constraints.map(source => parseConstraint(source, spec));
+  // Each constraint is one tally automaton, which has no alternatives.
+  const rules = spec.constraints.map(source => parseRule(source, spec));
+  if (rules.some(({ clauses }) => clauses.length > 1 || clauses[0].length > 1)) throw new Error('The tally encoding takes one relation per constraint; use the flat encoding for and and or.');
+  const equations = rules.map(({ clauses: [[relation]] }) => relation);
   let next = 1;
   const fields = spec.fields.map(name => {
     const copies = Math.max(1, ...equations.map(e => Math.abs(e.terms.find(([f]) => f === name)?.[1] ?? 0)));
