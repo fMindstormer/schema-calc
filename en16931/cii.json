@@ -1,5 +1,5 @@
 {
-  "title": "EN 16931 document totals, BR-CO-10 to BR-CO-16, as the CII Schematron checks them",
+  "title": "EN 16931 document totals, BR-CO-10 to BR-CO-17, as the CII Schematron checks them",
   "integerDigits": 6,
   "scale": 2,
   "signed": true,
@@ -9,7 +9,8 @@
     "lines": { "maxItems": 20, "fields": ["netAmount"] },
     "allowances": { "maxItems": 5, "fields": ["amount"] },
     "charges": { "maxItems": 5, "fields": ["amount"] },
-    "vatBreakdown": { "maxItems": 5, "fields": ["taxAmount"] }
+    "vatBreakdown": { "maxItems": 5, "fields": ["taxAmount", "taxableAmount", "rate"], "optional": ["rate"],
+      "values": { "rate": ["0", "6", "10", "12", "15", "19", "21", "22", "25", "27"] } }
   },
   "constraints": [
     "lineNetTotal = sum(lines.netAmount)",
@@ -18,6 +19,7 @@
     "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
     "no vatTotal or vatTotal = sum(vatBreakdown.taxAmount)",
     "has vatTotal and totalWithVat = totalWithoutVat + vatTotal or totalWithVat = totalWithoutVat",
-    "amountDue = totalWithVat - paidAmount + roundingAmount"
+    "amountDue = totalWithVat - paidAmount + roundingAmount",
+    "vatBreakdown.rate < 0.5 and vatBreakdown.taxAmount >= -0.5 and vatBreakdown.taxAmount < 0.5 or vatBreakdown.rate >= 0.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) >= -100.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) < 100.5"
   ]
 }

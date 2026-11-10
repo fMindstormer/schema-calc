@@ -1,4 +1,4 @@
-import { normalizeSpec, parseRule, amountSchema, DRAFT } from './syntax.mjs';
+import { normalizeSpec, parseRule, instantiate, formatAmount, amountSchema, DRAFT } from './syntax.mjs';
 import { packResources, MAX_DEPTH, MAX_SUBSCHEMAS } from './resources.mjs';
 
 const RADICES = [2, 5];
@@ -47,9 +47,11 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     return key;
   }
   const strings = new Map(), optional = new Set(spec.optional);
+  const optionalOf = list => new Set(spec.lists[list]?.optional);
   // Apply a string test to one variable: a field, a list position or a line's field.
-  function predicate(field, stringKey, string) {
-    const key = `${field}:${stringKey}`;
+  // absent says the variable is an optional field, which must then read as zero.
+  function predicate(field, stringKey, string, absent) {
+    const key = `${field}:${stringKey}:${absent ? 1 : 0}`;
     if (!predicates.has(key)) {
       // Share the string-level test even when it is applied to different fields.
       if (!strings.has(stringKey)) strings.set(stringKey, add(string()));
@@ -58,15 +60,15 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       // same for an absent optional field.
       const [, list, index, member] = /^(.+?)\[(\d+)\](?:\.(.+))?$/.exec(field) ?? [];
       const test = ref(strings.get(stringKey));
-      const item = member === undefined ? test : { type: 'object', properties: { [member]: test } };
-      predicates.set(key, add({ type: 'object', ...(optional.has(field) && { required: [field] }), properties: list === undefined ? { [field]: test }
+      const item = member === undefined ? test : { type: 'object', ...(absent && { required: [member] }), properties: { [member]: test } };
+      predicates.set(key, add({ type: 'object', ...(absent && list === undefined && { required: [field] }), properties: list === undefined ? { [field]: test }
         : { [list]: { type: 'array', minItems: Number(index) + 1, prefixItems: [...Array(Number(index)).fill(true), item] } } }));
     }
     return predicates.get(key);
   }
-  const digitTest = (field, position, mask) => predicate(field, `${position}:${mask}`, () => ({ type: 'string', pattern: pattern(position, mask, spec.scale) }));
-  const signTest = field => predicate(field, '-', () => ({ type: 'string', pattern: '^-' }));
-  function branch(field, position, mask, yes, no) {
+  const digitTest = (field, position, mask, absent) => predicate(field, `${position}:${mask}`, () => ({ type: 'string', pattern: pattern(position, mask, spec.scale) }), absent);
+  const signTest = (field, absent) => predicate(field, '-', () => ({ type: 'string', pattern: '^-' }), absent);
+  function branch(field, position, mask, yes, no, absent) {
     if (yes === no) return yes;
     // Always test a set excluding zero. An absent leading digit then fails the
     // predicate, exactly as a virtual zero should; no padding alternative is needed.
@@ -75,7 +77,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       mask ^= ALL_DIGITS;
       [yes, no] = [no, yes];
     }
-    return decide(digitTest(field, position, mask), yes, no);
+    return decide(digitTest(field, position, mask, absent), yes, no);
   }
   function decide(test, yes, no) {
     if (yes === no) return yes;
@@ -91,7 +93,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     if (!interned.has(key)) interned.set(key, add(node));
     return interned.get(key);
   }
-  function choose(field, position, values, divisor, radix) {
+  function choose(field, position, values, divisor, radix, absent) {
     const groups = new Map();
     // Several component values often have the same continuation. Test their union.
     values.forEach((child, value) => {
@@ -106,7 +108,7 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       for (let d = 0; d < 10; d++) {
         if (selected.has(Math.floor(d / divisor) % radix)) mask |= 1 << d;
       }
-      return branch(field, position, mask, tree(left), tree(right));
+      return branch(field, position, mask, tree(left), tree(right), absent);
     }
     return tree([...groups]);
   }
@@ -120,7 +122,8 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     const key = JSON.stringify([list, member, sign, position, mask, low, high]);
     if (!countTests.has(key)) {
       const string = { type: 'string', pattern: pattern(position, mask, spec.scale), ...(sign > 0 && spec.signed && { not: { pattern: '^-' } }), ...(sign < 0 && { allOf: [{ pattern: '^-' }] }) };
-      const item = member === undefined ? string : { type: 'object', properties: { [member]: string } };
+      // An absent optional field of a line counts as zero, so it must not match.
+      const item = member === undefined ? string : { type: 'object', ...(optionalOf(list).has(member) && { required: [member] }), properties: { [member]: string } };
       // required keeps the ranges disjoint when the list is absent; otherwise every range
       // would hold, and an anyOf would try each branch in turn, exponentially.
       countTests.set(key, add({ type: 'object', required: [list], properties: { [list]: { type: 'array', contains: item, minContains: low, ...(high < spec.lists[list].maxItems && { maxContains: high }) } } }));
@@ -152,6 +155,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     // With listSums: 'counts', every position of a list field has the same coefficient,
     // since only sum() reads them, and the positions become one counted term.
     const listPosition = /^(.+?)\[(\d+)\](?:\.(.+))?$/;
+    // An optional field of the record, of a list position, or of the line.
+    const mayBeAbsent = field => {
+      if (each) return optionalOf(each).has(field);
+      const [, list, , member] = listPosition.exec(field) ?? [];
+      return list === undefined ? optional.has(field) : member !== undefined && optionalOf(list).has(member);
+    };
     const counted = listSums === 'counts' ? [...new Map(allTerms.filter(([field]) => listPosition.test(field)).map(([field, coefficient]) => {
       const [, list, , member] = listPosition.exec(field);
       const positions = allTerms.filter(([other]) => { const [, l, , m] = listPosition.exec(other) ?? []; return l === list && m === member; });
@@ -159,18 +168,27 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
       return [`${list}.${member}`, { list, member, coefficient }];
     })).values()] : [];
     const terms = counted.length ? allTerms.filter(([field]) => !listPosition.test(field)) : allTerms;
-    const steps = RADICES.map((_, stage) => [...terms.map(([field, coefficient]) => ({ field, coefficient })),
+    // A coefficient c 10^k reads its field k positions later, with coefficient c: the
+    // digit at position p weighs c 10^(p+k). The carry then stays as small as for c.
+    // abs(x) reads the digits of x without its sign.
+    const fieldSteps = terms.map(([field, coefficient, absolute]) => {
+      let shift = 0;
+      while (coefficient % 10 === 0) { coefficient /= 10; shift++; }
+      return { field, coefficient, shift, absolute: Boolean(absolute) };
+    });
+    const span = width + Math.max(0, ...fieldSteps.map(step => step.shift));
+    const steps = RADICES.map((_, stage) => [...fieldSteps,
       ...counted.flatMap(({ list, member, coefficient }) => COUNTED[stage].flatMap(([mask, weight]) =>
         (spec.signed ? [1, -1] : [1]).map(sign => ({ list, member, mask, sign, coefficient: coefficient * weight }))))]);
     // At most one test per binary decision on a digit, plus its sign; a count may try every range.
     pathTests.push(width * (each ? spec.lists[each].maxItems : 1) * steps.reduce((n, stageSteps, stage) => n + stageSteps.reduce((m, step) =>
       m + (step.list ? spec.lists[step.list].maxItems + 1 : Math.ceil(Math.log2(RADICES[stage])) + (spec.signed ? 1 : 0)), 0), 0));
     const digits = (constant < 0n ? -constant : constant).toString()
-      .padStart(width, '0').split('').reverse()
+      .padStart(span, '0').split('').reverse()
       .map(d => Number(d) * (constant < 0n ? -1 : 1));
     function build(position, stage, operand, balance) {
-      if (position === width) {
-        const final = BigInt(balance) + constant / (10n ** BigInt(width));
+      if (position === span) {
+        const final = BigInt(balance) + constant / (10n ** BigInt(span));
         return exact ? final === 0n : final <= 0n;
       }
       if (stage === 0 && operand === 0) balance += digits[position] ?? 0;
@@ -192,38 +210,70 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
         }
       } else if (steps[stage][operand].list) {
         const { list, member, mask, sign, coefficient } = steps[stage][operand];
-        result = countSwitch(list, member, sign, position, mask, Array.from({ length: spec.lists[list].maxItems + 1 }, (_, count) =>
-          build(position, stage, operand + 1, balance + sign * coefficient * count)));
+        // Past the last digit every count is zero.
+        result = position >= width ? build(position, stage, operand + 1, balance)
+          : countSwitch(list, member, sign, position, mask, Array.from({ length: spec.lists[list].maxItems + 1 }, (_, count) =>
+            build(position, stage, operand + 1, balance + sign * coefficient * count)));
       } else {
-        const { field, coefficient } = steps[stage][operand];
+        const { field, coefficient, shift, absolute } = steps[stage][operand], digit = position - shift, absent = mayBeAbsent(field);
         const divisor = RADICES.slice(0, stage).reduce((a, b) => a * b, 1);
-        const read = sign => choose(field, position, Array.from({ length: radix }, (_, d) =>
-          build(position, stage, operand + 1, balance + sign * coefficient * d)), divisor, radix);
+        const read = sign => choose(field, digit, Array.from({ length: radix }, (_, d) =>
+          build(position, stage, operand + 1, balance + sign * coefficient * d)), divisor, radix, absent);
         // A signed amount is its sign times its digits. Testing the sign wherever a digit
         // is read keeps it out of the state, at the cost of one more test per read.
-        result = spec.signed ? decide(signTest(field), read(-1), read(1)) : read(1);
+        if (digit < 0 || digit >= width) result = build(position, stage, operand + 1, balance);
+        else result = spec.signed && !absolute ? decide(signTest(field, absent), read(-1), read(1)) : read(1);
       }
       memo.set(key, result);
       return result;
     }
     return build(0, 0, 0, 0);
   }
-  const machines = new Map(equations.map(equation => [equation, machine(equation)]));
+  // Naming the field in properties too keeps Ajv's strictRequired satisfied, and the type
+  // its strictTypes, wherever the test lands when the schema is split into resources.
+  const present = name => ({ type: 'object', required: [name], properties: { [name]: true } });
+  // The values a field may take, each with its spellings: zero also as -0 when amounts are
+  // signed. An absent optional field counts as zero, even when zero is not listed.
+  function cases(field, each) {
+    const listed = (each ? spec.lists[each].values : spec.values)[field], absent = (each ? optionalOf(each) : optional).has(field);
+    const zero = formatAmount(0n, spec.scale);
+    const values = listed.map(text => ({ units: BigInt(text.replace('.', '')), spellings: text === zero && spec.signed ? [text, `-${text}`] : [text] }));
+    return absent && !listed.includes(zero) ? [...values, { units: 0n, spellings: [] }] : values;
+  }
+  // A relation that multiplies by a field with listed values is one machine for each
+  // value, chosen by an anyOf of disjoint tests of the field, each a conditional, so
+  // no validator descends into a machine for another value.
+  function products(relation) {
+    const { by, each } = relation;
+    const branches = cases(by, each).flatMap(({ units, spellings }) => {
+      const child = machine(instantiate(relation, units));
+      if (child === false) return [];
+      // properties holds when the field is absent: an optional field at zero.
+      const test = !spellings.length ? { not: present(by) }
+        : { type: 'object', ...(units !== 0n || !(each ? optionalOf(each) : optional).has(by) ? { required: [by] } : {}), properties: { [by]: { enum: spellings } } };
+      return [child === true ? test : { if: test, then: ref(child), else: false }];
+    });
+    if (!branches.length) return false;
+    const node = branches.length === 1 ? branches[0] : { anyOf: branches };
+    const key = JSON.stringify(node);
+    if (!interned.has(key)) interned.set(key, add(node));
+    return interned.get(key);
+  }
+  const machines = new Map(equations.map(equation => [equation, equation.products ? products(equation) : machine(equation)]));
   // has and no read only presence: of an optional field, or of any item of a list.
-  const presence = ({ has, no }) => {
+  // On each line of a list, they read the line's optional fields.
+  const presence = ({ has, no }, each) => {
     const name = has ?? no;
-    if (Object.hasOwn(spec.lists, name)) return { properties: { [name]: { type: 'array', ...(has ? { minItems: 1 } : { maxItems: 0 }) } } };
-    // Naming the field in properties too keeps Ajv's strictRequired satisfied.
-    const present = { required: [name], properties: { [name]: true } };
-    return has ? present : { not: present };
+    if (!each && Object.hasOwn(spec.lists, name)) return { type: 'object', properties: { [name]: { type: 'array', ...(has ? { minItems: 1 } : { maxItems: 0 }) } } };
+    return has ? present(name) : { not: present(name) };
   };
   // A disjunction is an anyOf of its clauses, and a clause an allOf of its atoms,
   // presence tests first, since they fail fastest.
-  const clause = atoms => [...atoms.filter(atom => !atom.terms), ...atoms.filter(atom => atom.terms)]
-    .map(atom => atom.terms ? ref(machines.get(atom)) : presence(atom));
-  const tops = rules.map(({ source, clauses }) => {
-    if (clauses.length === 1) return { $comment: source, allOf: clause(clauses[0]) };
-    return { $comment: source, anyOf: clauses.map(atoms => { const parts = clause(atoms); return parts.length === 1 ? parts[0] : { allOf: parts }; }) };
+  const clause = (atoms, each) => [...atoms.filter(atom => !atom.terms), ...atoms.filter(atom => atom.terms)]
+    .map(atom => atom.terms ? ref(machines.get(atom)) : presence(atom, each));
+  const tops = rules.map(({ source, clauses, each }) => {
+    if (clauses.length === 1) return { $comment: source, allOf: clause(clauses[0], each) };
+    return { $comment: source, anyOf: clauses.map(atoms => { const parts = clause(atoms, each); return parts.length === 1 ? parts[0] : { allOf: parts }; }) };
   });
   // A constraint on each line is one machine over the line's fields, applied to every
   // item of the list, so it does not grow with the list's length.
@@ -298,16 +348,19 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
     return result;
   }
   const amount = amountSchema(spec.integerDigits, spec.scale, spec.signed);
+  // A field with listed values takes one of them.
+  const format = (field, each) => (each ? spec.lists[each].values : spec.values)?.[field]
+    ? { type: 'string', enum: cases(field, each).flatMap(({ spellings }) => spellings) } : amount;
   const graph = {
     $schema: DRAFT,
     title: spec.title,
     type: 'object', required: [...spec.fields.filter(f => !optional.has(f)), ...Object.keys(spec.lists)], additionalProperties: false,
     properties: {
-      ...Object.fromEntries(spec.fields.map(f => [f, amount])),
+      ...Object.fromEntries(spec.fields.map(f => [f, format(f)])),
       // Items of a list of objects may carry other properties, such as a description.
       ...Object.fromEntries(Object.entries(spec.lists).map(([name, { maxItems, fields }]) =>
         [name, { type: 'array', maxItems, items: fields
-          ? { type: 'object', required: fields, properties: Object.fromEntries(fields.map(f => [f, amount])),
+          ? { type: 'object', required: fields.filter(f => !optionalOf(name).has(f)), properties: Object.fromEntries(fields.map(f => [f, format(f, name)])),
             ...(lineRoots(name).length && { allOf: lineRoots(name).map(emit) }) }
           : amount }]))
     },
@@ -328,4 +381,4 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   } };
 }
 
-export { normalizeSpec, parseEquation, parseConstraint, parseRule, amountPattern, amountSchema, DRAFT } from './syntax.mjs';
+export { normalizeSpec, parseEquation, parseConstraint, parseRule, instantiate, formatAmount, amountPattern, amountSchema, DRAFT } from './syntax.mjs';

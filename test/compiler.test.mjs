@@ -8,7 +8,7 @@ import { presets } from '../src/presets.mjs';
 import { schemaResources, MAX_DEPTH, MAX_SUBSCHEMAS } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
 import { compileTally, encodeTally, decodeTally, MAX_TALLY_COPIES } from '../src/tally.mjs';
-import { parseEquation, parseConstraint, parseRule, normalizeSpec } from '../src/syntax.mjs';
+import { parseEquation, parseConstraint, parseRule, normalizeSpec, instantiate } from '../src/syntax.mjs';
 
 const corpus = [];
 const tallyCorpus = [];
@@ -471,7 +471,7 @@ test('and, or, has and no: syntax and refusals', () => {
   assert.deepEqual(shape('  order = norm '), [['  order = norm ']]);
   assert.equal(parseRule('lines.a = lines.b', spec).each, 'lines');
   for (const [source, message] of [['has v', /v is always present/], ['no w', /Unknown field: w/], ['has t + 1', /Write has or no before one optional field or list/],
-    ['v = 1 or', /each side of and and or/], ['and v = 1', /each side of and and or/], ['lines.a = lines.b or v = 1', /each line of lines is one relation/],
+    ['v = 1 or', /each side of and and or/], ['and v = 1', /each side of and and or/], ['lines.a = lines.b or v = 1', /each line of lines joins only relations and tests on that line; found v = 1/],
     [Array.from({ length: 9 }, (_, i) => `v = ${i}`).join(' or '), /at most 8 relations and tests/], ['v = 1 or v == 2', /found "="/]]) {
     assert.throws(() => parseRule(source, spec), message, source);
   }
@@ -516,6 +516,180 @@ test('signed and optional declarations', () => {
   const { schema } = compile({ ...base, optional: ['b'], signed: true });
   assert.deepEqual(schema.$defs._.required, ['a']);
   assert.match(schema.$defs._.properties.a.pattern, /^\^-\?/);
+});
+
+const absolute = x => x < 0n ? -x : x;
+// The generator's low bits repeat with short periods, so these tests read its high bits.
+const draw = limit => Math.floor(random(2 ** 30) / 2 ** 30 * limit);
+
+test('abs() reads an amount without its sign', () => {
+  const check = contract('abs', { fields: ['a', 'b', 'c'], integerDigits: 3, scale: 2, signed: true,
+    constraints: ['abs(a) + 2 * abs(b) <= c + 1.00', 'abs(a) - a <= abs(b) + b'] }, { tally: false });
+  const holds = (a, b, c) => absolute(a) + 2n * absolute(b) <= c + 100n && absolute(a) - a <= absolute(b) + b;
+  const verdicts = [];
+  for (let i = 0; i < 400; i++) {
+    const a = BigInt(draw(60000)) - 30000n, b = BigInt(draw(60000)) - 30000n;
+    // Half the records put c one unit either side of the bound.
+    const c = i % 2 ? absolute(a) + 2n * absolute(b) - 100n + BigInt(draw(3)) - 1n : BigInt(draw(200000)) - 100000n;
+    if (c <= -100000n || c >= 100000n) continue;
+    verdicts.push(holds(a, b, c));
+    check({ a: signedMoney(a), b: signedMoney(b), c: signedMoney(c) }, verdicts.at(-1));
+  }
+  assert.ok(verdicts.filter(Boolean).length > 80 && verdicts.filter(v => !v).length > 80);
+  check({ a: '-0.00', b: '0.00', c: '-1.00' }, true);
+  check({ a: '-0.01', b: '0.00', c: '-1.00' }, false);
+  // Without signs, abs(x) is x.
+  const plain = contract('abs without signs', { fields: ['a', 'b'], integerDigits: 1, scale: 0, constraints: ['abs(a) = b'] }, { tally: false });
+  for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) plain({ a: String(a), b: String(b) }, a === b);
+});
+
+test('coefficients ending in zeros agree with an oracle, and cost no more than one', () => {
+  const check = contract('decimal coefficients', { fields: ['a', 'b', 'c', 'd'], integerDigits: 4, scale: 2, signed: true,
+    constraints: ['10 * a + 100 * b = 1000 * c + d', '20 * a <= 3 * b + 0.50'] }, { tally: false });
+  const verdicts = [];
+  for (let i = 0; i < 300; i++) {
+    const a = BigInt(draw(2000)) - 1000n, b = BigInt(draw(2000)) - 1000n;
+    const c = (10n * a + 100n * b) / 1000n + BigInt(draw(3)) - 1n, d = 10n * a + 100n * b - 1000n * c + (i % 3 ? 0n : BigInt(draw(3)) - 1n);
+    verdicts.push(10n * a + 100n * b === 1000n * c + d && 20n * a <= 3n * b + 50n);
+    check({ a: signedMoney(a), b: signedMoney(b), c: signedMoney(c), d: signedMoney(d) }, verdicts.at(-1));
+  }
+  assert.ok(verdicts.filter(Boolean).length > 60 && verdicts.filter(v => !v).length > 60);
+  // A coefficient c 10^k reads its field k places later, so the carry is that of c.
+  const size = constraint => compile({ fields: ['t', 'b'], constraints: [constraint], integerDigits: 6, scale: 2 }).stats.bytes;
+  assert.ok(size('t = 1000 * b') < 1.2 * size('t = b') && size('t = 100 * b') < 1.2 * size('t = b'));
+});
+
+test('optional fields of a line count as zero; and, or and has join relations on each line', () => {
+  const check = contract('optional line fields', { fields: ['total'], lists: { lines: { maxItems: 3, fields: ['net', 'tax', 'amount'], optional: ['tax'] } }, integerDigits: 2, scale: 0,
+    constraints: ['lines.amount = lines.net + lines.tax', 'sum(lines.tax) = total', 'has lines.tax and lines.tax >= 1 or no lines.tax and lines.net <= 50'] }, { tally: false });
+  const holds = (lines, total) => lines.every(({ net, tax, amount }) => amount === net + (tax ?? 0) && (tax !== undefined ? tax >= 1 : net <= 50)) &&
+    lines.reduce((sum, { tax }) => sum + (tax ?? 0), 0) === total;
+  const verdicts = [];
+  for (let i = 0; i < 500; i++) {
+    // Lines that hold, then about half the time one value changed, added or removed.
+    const lines = Array.from({ length: draw(4) }, () => {
+      const tax = draw(3) ? 1 + draw(19) : undefined, net = tax === undefined ? draw(51) : draw(61);
+      return { net, tax, amount: net + (tax ?? 0) };
+    });
+    let total = lines.reduce((sum, { tax }) => sum + (tax ?? 0), 0);
+    const change = draw(10), line = lines[draw(lines.length || 1)];
+    if (change === 0) total = Math.max(0, total + draw(3) - 1);
+    if (line && change === 1) line.tax = line.tax === undefined ? draw(3) : undefined;
+    if (line && change === 2) line.net = draw(61);
+    if (line && change === 3) line.amount = Math.max(0, line.amount + draw(3) - 1);
+    if (line && change === 4 && line.tax !== undefined) line.tax = 0;
+    verdicts.push(holds(lines, total));
+    check({ total: String(total), lines: lines.map(({ net, tax, amount }) => ({ net: String(net), amount: String(amount), ...(tax !== undefined && { tax: String(tax) }) })) }, verdicts.at(-1));
+  }
+  assert.ok(verdicts.filter(Boolean).length > 100 && verdicts.filter(v => !v).length > 100);
+  check({ total: '0', lines: [{ net: '10', amount: '10' }] }, true);
+  check({ total: '0', lines: [{ net: '10', amount: '10', tax: '0' }] }, false);
+  check({ total: '0', lines: [{ net: '51', amount: '51' }] }, false);
+  check({ total: '0', lines: [{ net: '10', amount: '10', tax: null }] }, false);
+  check({ total: '0', lines: [{ amount: '0' }] }, false);
+});
+
+// The Schematron's BR-CO-17 test, with exact integers: an amount in cents, a rate in
+// hundredths of a percent. XPath's round takes halves toward positive infinity.
+const roundHalfUp = (n, d) => { const floor = n / d - (n % d < 0n ? 1n : 0n); return 2n * (n - floor * d) >= d ? floor + 1n : floor; };
+function vatHolds({ tax, base, rate }, strict) {
+  if (rate === undefined || roundHalfUp(rate, 100n) === 0n) return roundHalfUp(tax, 100n) === 0n;
+  const rounded = roundHalfUp(absolute(base) * rate, 10000n), t = absolute(tax);
+  return strict ? t - 100n < rounded && t + 100n > rounded : t - 100n <= rounded && t + 100n >= rounded;
+}
+const vatRule = (list, bound) => `${list}.rate < 0.5 and ${list}.tax >= -0.5 and ${list}.tax < 0.5 or ${list}.rate >= 0.5 and ` +
+  `${list}.rate * abs(${list}.base) - 100 * abs(${list}.tax) >= -${bound} and ${list}.rate * abs(${list}.base) - 100 * abs(${list}.tax) < ${bound}`;
+
+test('a field with listed values multiplies another field: tax = base times rate, rounded, on every line', () => {
+  const rates = [600n, 2500n, 2700n];
+  for (const [name, bound, strict] of [['listed rates, strict tolerance', '99.5', true], ['listed rates, inclusive tolerance', '100.5', false]]) {
+    // Zero is not listed, so a breakdown with a rate has one of three; one without counts as zero.
+    const check = contract(name, { fields: ['vat'], lists: { vat_lines: { maxItems: 2, fields: ['tax', 'base', 'rate'], optional: ['rate'], values: { rate: ['6', '25', '27'] } } },
+      integerDigits: 4, scale: 2, signed: true, constraints: [vatRule('vat_lines', bound), 'sum(vat_lines.tax) = vat'] }, { tally: false });
+    const verdicts = [];
+    for (let i = 0; i < 250; i++) {
+      const lines = Array.from({ length: 1 + draw(2) }, () => {
+        const rate = draw(4) ? rates[draw(3)] : undefined, base = BigInt(draw(1000000)) - 500000n;
+        const exact = rate === undefined ? 0n : roundHalfUp(absolute(base) * rate, 10000n) * (draw(2) ? 1n : -1n);
+        // Within the tolerance, or within ten cents of either of its ends.
+        const deviation = rate === undefined ? BigInt(draw(121)) - 60n : draw(2) ? BigInt(draw(199)) - 99n : BigInt(draw(21)) - 10n + (draw(2) ? 100n : -100n);
+        return { rate, base, tax: exact + deviation };
+      }).filter(({ tax }) => absolute(tax) < 1000000n);
+      const sum = lines.reduce((a, { tax }) => a + tax, 0n), vat = draw(4) ? sum : sum + BigInt(draw(2)) * 2n - 1n;
+      if (absolute(vat) >= 1000000n) continue;
+      verdicts.push(vat === sum && lines.every(line => vatHolds(line, strict)));
+      check({ vat: signedMoney(vat), vat_lines: lines.map(({ rate, base, tax }) => ({ tax: signedMoney(tax), base: signedMoney(base), ...(rate !== undefined && { rate: signedMoney(rate) }) })) }, verdicts.at(-1));
+    }
+    assert.ok(verdicts.filter(Boolean).length > 50 && verdicts.filter(v => !v).length > 50, name);
+    // 25% of 4.02 is 1.005, which rounds up to 1.01. A tax 1.00 off it holds only with the
+    // inclusive tolerance; rounding the half down would turn both of these around.
+    const line = tax => ({ vat: tax, vat_lines: [{ tax, base: '4.02', rate: '25.00' }] });
+    check(line('2.01'), !strict); check(line('2.02'), false); check(line('2.00'), true); check(line('0.02'), true); check(line('0.01'), !strict); check(line('-2.01'), !strict);
+    check({ vat: '0.49', vat_lines: [{ tax: '0.49', base: '100.00' }] }, true);
+    check({ vat: '0.50', vat_lines: [{ tax: '0.50', base: '100.00' }] }, false);
+    check({ vat: '-0.50', vat_lines: [{ tax: '-0.50', base: '100.00' }] }, true);
+    check({ vat: '0.00', vat_lines: [{ tax: '0.00', base: '0.00', rate: '0.00' }] }, false);
+    check({ vat: '0.00', vat_lines: [{ tax: '0.00', base: '0.00', rate: '7.00' }] }, false);
+  }
+});
+
+test('listed values on the record: fractions, negative values and an absent multiplier', () => {
+  const check = contract('listed multipliers', { fields: ['k', 'x', 'y'], optional: ['k'], values: { k: ['-1', '0', '2.5', '19'] }, integerDigits: 3, scale: 2, signed: true,
+    constraints: ['k * x - y <= 0.05', 'y - k * abs(x) < 1'] }, { tally: false });
+  // In ten-thousandths: k and x in hundredths each, y in hundredths times 100.
+  const holds = (k, x, y) => k * x - 100n * y <= 500n && 100n * y - k * absolute(x) < 10000n;
+  const verdicts = [];
+  for (let i = 0; i < 300; i++) {
+    const k = [undefined, -100n, 0n, 250n, 1900n][draw(5)], x = BigInt(draw(10000)) - 5000n;
+    const y = roundHalfUp((k ?? 0n) * x, 100n) + BigInt(draw(201)) - 100n;
+    if (absolute(y) >= 100000n) continue;
+    verdicts.push(holds(k ?? 0n, x, y));
+    check({ x: signedMoney(x), y: signedMoney(y), ...(k !== undefined && { k: signedMoney(k) }) }, verdicts.at(-1));
+  }
+  assert.ok(verdicts.filter(Boolean).length > 60 && verdicts.filter(v => !v).length > 60);
+  check({ k: '-0.00', x: '1.00', y: '0.00' }, true);
+  check({ k: '2.00', x: '1.00', y: '0.00' }, false);
+  check({ k: '2.5', x: '1.00', y: '2.50' }, false);
+});
+
+test('abs, listed values, products and joined lines: syntax and refusals', () => {
+  const spec = normalizeSpec({ fields: ['k', 'x', 'y'], optional: ['k'], values: { k: ['0', 2.5, '19.00'] }, signed: true,
+    lists: { lines: { maxItems: 2, fields: ['rate', 'base', 'tax'], optional: ['rate'], values: { rate: ['7'] } }, xs: 2 }, constraints: ['x = 0'] });
+  assert.deepEqual(spec.values, { k: ['0.00', '2.50', '19.00'] });
+  assert.deepEqual(spec.lists.lines, { maxItems: 2, fields: ['rate', 'base', 'tax'], optional: ['rate'], values: { rate: ['7.00'] } });
+  const { source, ...product } = parseConstraint('k * abs(x) + x < y', spec);
+  assert.deepEqual(product, { relation: '<=', terms: [['x', 100], ['y', -100]], constant: 1n, by: 'k', products: [['x', 1, true]] });
+  assert.deepEqual(instantiate(product, 250n).terms, [['x', 100], ['y', -100], ['x', 250, true]]);
+  assert.deepEqual(instantiate(parseConstraint('k * x = x', spec), 100n).terms, []);
+  assert.deepEqual(parseConstraint('2 * lines.rate >= lines.base', spec).products, undefined, 'a whole number times a listed field is linear');
+  assert.deepEqual(parseConstraint('lines.base * lines.rate >= abs(lines.tax)', spec), { source: 'lines.base * lines.rate >= abs(lines.tax)', relation: '<=', terms: [['tax', 100, true]], constant: 0n, by: 'rate', products: [['base', -1]], each: 'lines' });
+  for (const [constraint, message] of [['k * k = 0', /Two fields with listed values cannot be multiplied/], ['x * y = 0', /Fields cannot be multiplied together: x \* y/],
+    ['k * sum(xs) = 0', /multiplies one field, not a sum/], ['lines.rate * lines.base = x', /reads only that line's fields and constants; found x/], ['2 * k * x = 0', /at most one coefficient/],
+    ['abs(sum(xs)) = 0', /abs takes one field/], ['abs(xs) = 0', /xs is a list/], ['abs(w) = 0', /Unknown field: w/], ['abs(x = 0', /abs takes one field/]]) {
+    assert.throws(() => parseConstraint(constraint, spec), message, constraint);
+  }
+  const twoListed = normalizeSpec({ fields: ['a', 'b', 'x'], values: { a: ['1'], b: ['2'] }, constraints: ['x = 0'] });
+  assert.throws(() => parseConstraint('a * x + b * x = 0', twoListed), /one field with listed values; found a and b/);
+  for (const [extra, message] of [[{ values: { w: ['1'] } }, /values names an unknown field: w/], [{ values: { x: [] } }, /between 1 and 32 values/],
+    [{ values: { x: ['1e2'] } }, /must be decimals/], [{ values: { x: ['0.001'] } }, /exceeds the declared precision/], [{ values: { x: ['10000'] } }, /exceeds/],
+    [{ values: { x: ['-1'] } }, /is negative; declare "signed": true/], [{ values: { x: ['1', '1.00'] } }, /must differ/], [{ values: ['x'] }, /must map fields/],
+    [{ values: { x: Array.from({ length: 33 }, (_, i) => String(i)) } }, /between 1 and 32/], [{ lists: { lines: { maxItems: 2, fields: ['a'], optional: ['b'] } } }, /optional of lines must list declared fields/],
+    [{ lists: { lines: { maxItems: 2, fields: ['a'], values: { a: [true] } } } }, /must be decimals/]]) {
+    assert.throws(() => normalizeSpec({ fields: ['x'], constraints: ['x = 0'], ...extra }), message, JSON.stringify(extra));
+  }
+  const shape = source => parseRule(source, spec).clauses.map(atoms => atoms.map(atom => atom.terms ? atom.source : atom));
+  assert.deepEqual(shape('has lines.rate and lines.tax = 0 or no lines . rate'), [[{ has: 'rate' }, 'lines.tax = 0'], [{ no: 'rate' }]]);
+  assert.equal(parseRule('no lines.rate or lines.tax >= 0', spec).each, 'lines');
+  for (const [source, message] of [['has lines.base or x = 0', /lines.base is always present/], ['has xs.a', /xs holds amounts; has and no test the whole list: write has xs/],
+    ['has other.a', /Unknown list: other/], ['has lines.gross', /Unknown field of lines: gross/], ['no lines.rate or has k', /each line of lines joins only relations and tests on that line; found has k/],
+    ['lines.tax = 0 or y = 0', /found y = 0/]]) {
+    assert.throws(() => parseRule(source, spec), message, source);
+  }
+  assert.throws(() => compileTally({ fields: ['a', 'b'], constraints: ['abs(a) = b'] }), /tally encoding does not support abs/);
+  assert.throws(() => compileTally({ fields: ['a', 'b'], values: { a: ['1'] }, constraints: ['a = b'] }), /tally encoding does not support listed values/);
+  // The form admits only listed values, and -0 for a listed zero.
+  const { schema } = compile({ fields: ['k', 'x'], values: { k: ['0', '7'] }, signed: true, constraints: ['k * x = 0'] });
+  assert.deepEqual(schema.$defs._.properties.k, { type: 'string', enum: ['0.00', '-0.00', '7.00'] });
 });
 
 test('counting a list and reading its positions give the same verdicts', () => {

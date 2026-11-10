@@ -1,6 +1,7 @@
 // Compare the compiled EN 16931 totals schemas, one for each syntax's Schematron, with
 // the official Schematron on the official example invoices and on changed copies
-// of them: amounts raised by one cent, or optional elements removed. Run en16931/fetch.sh
+// of them: amounts raised by one cent, VAT amounts moved by up to a unit, or optional
+// elements removed. Run en16931/fetch.sh
 // first; needs Python 3 and a JDK (JAVA_HOME, or java on the PATH).
 //   node en16931/run.mjs [--python] [--plain-ajv] [--write]
 // --python also validates every invoice with Python jsonschema. --plain-ajv times
@@ -19,7 +20,7 @@ const args = process.argv.slice(2);
 // Other work on the machine slows every timing below; the page says how busy it was.
 const loadAtStart = loadavg()[0];
 // In the order of each contract's constraints.
-const RULES = ['BR-CO-10', 'BR-CO-11', 'BR-CO-12', 'BR-CO-13', 'BR-CO-14', 'BR-CO-15', 'BR-CO-16'];
+const RULES = ['BR-CO-10', 'BR-CO-11', 'BR-CO-12', 'BR-CO-13', 'BR-CO-14', 'BR-CO-15', 'BR-CO-16', 'BR-CO-17'];
 const REPEAT = 50;
 const SYNTAXES = ['ubl', 'cii'];
 // One contract for each syntax, since the two Schematrons bind some rules differently.
@@ -38,7 +39,7 @@ function run(command, argv, input) {
 }
 const median = values => [...values].sort((a, b) => a - b)[values.length >> 1];
 
-// 1. Every official example, and copies with one or more totals raised by one cent.
+// 1. Every official example, and copies with amounts changed or optional elements removed.
 const documents = [];
 for (const syntax of SYNTAXES) {
   const dir = join(artefacts, syntax, 'examples'), out = join(scratch, 'changed', syntax);
@@ -68,7 +69,9 @@ const AMOUNT = new RegExp(`^-?(0|[1-9][0-9]{0,${contract.integerDigits - 1}})\\.
 const listed = Object.entries(contract.lists);
 const representable = record => contract.fields.every(field => contract.optional.includes(field) || record[field] !== undefined) && listed.every(([name, { maxItems }]) => Array.isArray(record[name]) && record[name].length <= maxItems) &&
   [...contract.fields.map(field => record[field]).filter(value => value !== undefined),
-    ...listed.flatMap(([name, { fields: [field] }]) => record[name].map(item => item[field]))].every(value => typeof value === 'string' && AMOUNT.test(value));
+    // Every field of every item, except an optional one that is absent.
+    ...listed.flatMap(([name, { fields, optional = [] }]) => record[name].flatMap(item => fields.filter(field => !optional.includes(field) || item[field] !== undefined).map(field => item[field])))]
+    .every(value => typeof value === 'string' && AMOUNT.test(value));
 
 // 4. For each syntax, one schema for all the rules, and one for each rule alone. A rule
 // both syntaxes bind alike has one schema.
@@ -165,11 +168,11 @@ if (args.includes('--write')) {
     '| Rule | Rejected by the Schematron | Same verdict | Schema for this rule alone |',
     '|---|---:|---:|---:|',
     ...RULES.map(rule => `| ${rule} | ${summary.byRule[rule].schematronFails} | ${summary.byRule[rule].agree} of ${inForm.length} | ${bothSizes(summary.byRule[rule].bytes)} |`),
-    `| All seven | ${inForm.filter(d => d.schematronFailed.length).length} | ${inForm.filter(d => d.combinedValid === !d.schematronFailed.length).length} of ${inForm.length} | ${bothSizes(Object.fromEntries(SYNTAXES.map(syntax => [syntax, combined[syntax].bytes])))} |`,
+    `| All eight | ${inForm.filter(d => d.schematronFailed.length).length} | ${inForm.filter(d => d.combinedValid === !d.schematronFailed.length).length} of ${inForm.length} | ${bothSizes(Object.fromEntries(SYNTAXES.map(syntax => [syntax, combined[syntax].bytes])))} |`,
     '',
     '| | Official Schematron (XSLT) | Compiled JSON Schema |',
     '|---|---:|---:|',
-    `| Rules checked | All of EN 16931 | BR-CO-10 to BR-CO-16 |`,
+    `| Rules checked | All of EN 16931 | BR-CO-10 to BR-CO-17 |`,
     `| Size | ${kB(readFileSync(join(artefacts, 'ubl/xslt/EN16931-UBL-validation.xslt')).length)} (UBL), ${kB(readFileSync(join(artefacts, 'cii/xslt/EN16931-CII-validation.xslt')).length)} (CII) | ${kB(combined.ubl.bytes)} (UBL), ${kB(combined.cii.bytes)} (CII) |`,
     `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${seconds(combined.ubl.prepareMs)} (UBL), ${seconds(combined.cii.prepareMs)} (CII), Ajv ${summary.ajv}, resources added bottom-up |`,
     `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${pythonResults.medianMs >= 1000 ? `${(pythonResults.medianMs / 1000).toFixed(1)} s` : `${ms(pythonResults.medianMs)} ms`} in Python jsonschema ${pythonResults.jsonschema}` : ''} |`,
