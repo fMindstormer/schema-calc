@@ -3,31 +3,31 @@
 Schema Calc's claim is that its output needs no Schema Calc: any conforming Draft 2020-12 validator should give the arithmetic's answer. This directory tests that claim against independent validators in five languages. Each one runs **with its default options** on the same generated corpora as the [Python cross-check](../README.md#verification), and every answer is compared with the arithmetic.
 
 <!-- results:start -->
-| Validator | Language | Version | Flat input (85) | Flat input, `$defs` layout (85) | Tally input (67) | Shipped examples (9) |
+| Validator | Language | Version | Flat input (92) | Flat input, `$defs` layout (92) | Tally input (67) | Shipped examples (9) |
 |---|---|---|---|---|---|---|
-| ajv | JavaScript | 8.20.0 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| @hyperjump/json-schema | JavaScript | 1.18.0 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| @exodus/schemasafe | JavaScript | 1.3.0 | times out on 3 of 85 schemas; the other 42,909 cases agree | times out on 1 of 85 schemas; the other 43,159 cases agree | all 31,521 agree | all 18 agree |
-| @cfworker/json-schema | JavaScript | 4.1.1 | refuses 73 of 85 schemas; the other 695 cases agree | all 43,319 agree | all 31,521 agree | refuses 5 of 9 schemas; the other 8 cases agree |
-| jsonschema | Python | 4.25.1 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| jsonschema-rs | Python | 0.60.3 | exceeds 2 GB on 50 of 85 schemas; the other 34,625 cases agree | exceeds 2 GB on 46 of 85 schemas; the other 35,108 cases agree | all 31,521 agree | exceeds 2 GB on 5 of 9 schemas; the other 8 cases agree |
-| github.com/santhosh-tekuri/jsonschema/v6 | Go | v6.0.3 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| github.com/kaptinlin/jsonschema | Go | v0.9.10 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| com.networknt:json-schema-validator | Java | 3.0.8 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| dev.harrel:json-schema | Java | 1.9.1 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| com.github.erosb:json-sKema | Java | 0.32.0 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
-| JsonSchema.Net | C# | 9.5.0 | all 43,319 agree | all 43,319 agree | all 31,521 agree | all 18 agree |
+| ajv | JavaScript | 8.20.0 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| @hyperjump/json-schema | JavaScript | 1.18.0 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| @exodus/schemasafe | JavaScript | 1.3.0 | times out on 4 of 92 schemas; the other 44,536 cases agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| @cfworker/json-schema | JavaScript | 4.1.1 | refuses 80 of 92 schemas; the other 695 cases agree | all 45,451 agree | all 31,521 agree | refuses 5 of 9 schemas; the other 8 cases agree |
+| jsonschema | Python | 4.25.1 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| jsonschema-rs | Python | 0.60.3 | exceeds 2 GB on 53 of 92 schemas; the other 35,550 cases agree | exceeds 2 GB on 51 of 92 schemas; the other 35,713 cases agree | all 31,521 agree | exceeds 2 GB on 5 of 9 schemas; the other 8 cases agree |
+| github.com/santhosh-tekuri/jsonschema/v6 | Go | v6.0.3 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| github.com/kaptinlin/jsonschema | Go | v0.9.10 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| com.networknt:json-schema-validator | Java | 3.0.8 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| dev.harrel:json-schema | Java | 1.9.1 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| com.github.erosb:json-sKema | Java | 0.32.0 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
+| JsonSchema.Net | C# | 9.5.0 | all 45,451 agree | all 45,451 agree | all 31,521 agree | all 18 agree |
 <!-- results:end -->
 
 **No validator gave a wrong answer.** In every configuration, every record a validator checked got the arithmetic's answer. The validators differ only in which schemas they will load:
 
 - **Nine of the twelve load every schema with the default layout**, and @exodus/schemasafe loads all but a few of the largest. Version 0.1.0's schemas were refused by four of those nine. Both Go validators refused every flat schema, because Go's standard regexp (RE2) has no lookahead and the end-of-string test was `(?![\s\S])`. JsonSchema.Net stopped at System.Text.Json's limit of 64 nesting levels, which the invoice exceeded at 85. networknt did not finish loading the invoice within two minutes. The compiler now checks the end of a field with `$` plus a second pattern, `not: {pattern: "[^.0-9]"}` (in Python, Java and .NET `$` alone would also match before a final newline), and keeps every file within 32 levels. That costs 95–132 bytes per example; see [design.md](../docs/design.md#domain).
-- **@cfworker/json-schema refuses resources embedded inside other resources.** It rejects exactly the 73 flat schemas in which one embedded `$id` resource sits inside another, reporting `Duplicate schema URI`: its dereferencing reaches such a resource both from the enclosing resource and from the root. The schemas are valid, and the other validators load them. With `compile(spec, { layout: 'defs' })` or `--defs`, every shared resource is declared in a root `$defs` instead; cfworker then loads every schema and agrees on every case, at 13–21% more bytes.
-- **@exodus/schemasafe times out on some of the largest schemas.** Its loading time grows steeply with size, and from about 170 kB it can pass the harness's 120-second limit without reporting, so which list schemas time out varies between runs and machines. In this run they were the two compiling `100 * a` and `1000 * a` (333 kB and 911 kB) and the signed list of lines (364 kB); with `$defs`, only the 911 kB one. Timed separately, it loads the 333 kB schema in 159 s, or 46 s with the `$defs` layout, and the 911 kB one in 11 minutes, or 10 with `$defs`. It gets every answer right. The other validators that load them take under 20 s.
-- **jsonschema-rs runs out of memory loading the larger flat schemas** in either layout: it passes 2 GB while still loading 50 of the 84 (46 with `$defs`), including all five shipped ones. Unlimited, the 0.1.0 invoice reached nearly 4 GB within a minute without finishing. The flat schemas are small DAGs with heavily shared references, so this looks like expansion of shared subschemas at load time, but that is not verified. The nesting limit does not change it: on the 31 schemas before coefficients were added, between 16 and 56 levels, 9 to 11 still exceeded 2 GB. It loads the others in seconds and agrees on every case.
+- **@cfworker/json-schema refuses resources embedded inside other resources.** It rejects exactly the 80 flat schemas in which one embedded `$id` resource sits inside another, reporting `Duplicate schema URI`: its dereferencing reaches such a resource both from the enclosing resource and from the root. The schemas are valid, and the other validators load them. With `compile(spec, { layout: 'defs' })` or `--defs`, every shared resource is declared in a root `$defs` instead; cfworker then loads every schema and agrees on every case, at 13–21% more bytes.
+- **@exodus/schemasafe times out on some of the largest schemas.** Its loading time grows steeply with size, and from about 170 kB it can pass the harness's 120-second limit without reporting, so which schemas time out varies between runs and machines. In this run they were the four largest, from 364 to 410 kB: the signed list of lines and the three that multiply by a field with listed values. With `$defs` it loaded every schema, the slowest in 68 s. The schemas compiling `100 * a` and `1000 * a` timed out too while they were 333 kB and 911 kB; since a coefficient ending in zeros reads its field later instead, they are 37 kB and 31 kB. It gets every answer right. The other validators that load the four take under 10 s.
+- **jsonschema-rs runs out of memory loading the larger flat schemas** in either layout: it passes 2 GB while still loading 53 of the 92 (51 with `$defs`), including all five shipped ones. Unlimited, the 0.1.0 invoice reached nearly 4 GB within a minute without finishing. The flat schemas are small DAGs with heavily shared references, so this looks like expansion of shared subschemas at load time, but that is not verified. The nesting limit does not change it: on the 31 schemas before coefficients were added, between 16 and 56 levels, 9 to 11 still exceeded 2 GB. It loads the others in seconds and agrees on every case.
 - **Lists are counted with `contains`.** A list's sum reads how many lines have each digit in a column, with `minContains` and `maxContains`. With `listSums: 'positions'` it reads each position through a partial `prefixItems` tuple instead, which Ajv's default strict mode warns about and refuses under `strict: true` unless `strictTuples` is off; the corpus uses the default.
 - **Every validator loads every tally schema.** The [tally encoding](../docs/tally.md) uses no patterns or embedded resources and stays shallow, and all 31,521 cases agree everywhere.
-- **Loading time varies widely for the same file.** The 41 kB shipped invoice took 6.5 s to load in schemasafe, 1.5 s in Ajv with its default options, 0.5 s in networknt and 0.3–0.4 s in the other two Java validators; every other validator that loaded it took under a tenth of a second. The `$defs` layout loads faster in most of them: 1.4 s in schemasafe and 0.2 s in Ajv. The 911 kB coefficient schema took 13 s in Ajv, 16 s in the santhosh-tekuri Go validator and 8 s in harrel. Python `jsonschema` builds lazily and pays instead while validating: three to three and a half minutes for each flat suite, against seconds for most compiled validators. These timings come from runs with three runners in parallel on an Apple Silicon Mac that was also busy with other work, and they only indicate scale.
+- **Loading time varies widely for the same file.** The 41 kB shipped invoice took 3.8 s to load in schemasafe, 0.7 s in Ajv with its default options, 0.4 s in networknt and 0.1 s in json-sKema; every other validator that loaded it took under a tenth of a second. The `$defs` layout loads faster in most of them: 0.7 s in schemasafe and 0.1 s in Ajv. The 410 kB schema of listed multipliers took 8.5 s in Ajv, 3.0 s in networknt, 1.3 s in the santhosh-tekuri Go validator and 0.8 s in harrel. Python `jsonschema` builds lazily and pays instead while validating: over three minutes for each flat suite, against seconds for most compiled validators. These timings come from runs with three runners in parallel on an otherwise idle Apple Silicon Mac, and they only indicate scale.
 
 Each refusal or timeout comes from a validator limitation rather than the schemas' logic. The table shows which layout avoids it; for schemasafe and jsonschema-rs, smaller schemas do.
 
@@ -35,8 +35,8 @@ Each refusal or timeout comes from a validator limitation rather than the schema
 
 | Suite | Schemas | Cases | Source |
 |---|---:|---:|---|
-| Flat input | 85 | 43,319 | `test/corpus.json`, written by `npm test` |
-| Flat input, `$defs` layout | 85 | 43,319 | The same contracts compiled with `layout: 'defs'` by the harness |
+| Flat input | 92 | 45,451 | `test/corpus.json`, written by `npm test` |
+| Flat input, `$defs` layout | 92 | 45,451 | The same contracts compiled with `layout: 'defs'` by the harness |
 | Tally input, including malformed encodings | 67 | 31,521 | `test/tally-corpus.json`, written by `npm test` |
 | Shipped examples | 9 | 18 | `examples/*.schema.json` with their `valid` and `invalid` records |
 
