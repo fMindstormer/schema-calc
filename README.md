@@ -27,7 +27,7 @@ JSON Schema has no built-in operator for adding values from different properties
 
 The example schema is **41,391 bytes**, down from **284,300 bytes** for the first construction, with the same input and numeric bounds. No gzip, custom keywords, `$data`, arithmetic callbacks, or remotely fetched schemas are involved. Both independent validators check the actual exported file.
 
-**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.5.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.5.0)**: the invoice schema, both records and a standalone Python validator.
+**[Try it in your browser](https://fmindstormer.github.io/schema-calc/)** · **[Download v0.6.0](https://github.com/fMindstormer/schema-calc/releases/tag/v0.6.0)**: the invoice schema, both records and a standalone Python validator.
 
 [One cent, two validators](#one-cent-two-validators) · [Computational model](#the-computational-model) · [Compression](#where-the-compression-comes-from) · [Verification](#verification) · [Research notes](#explore-the-project)
 
@@ -51,7 +51,7 @@ You need Python 3 and `jsonschema` 4.25.1; not Node, and not this repository:
 
 ```sh
 python3 -m pip install jsonschema==4.25.1
-base=https://github.com/fMindstormer/schema-calc/releases/download/v0.5.0
+base=https://github.com/fMindstormer/schema-calc/releases/download/v0.6.0
 for f in validate.py invoice.schema.json invoice.valid.json invoice.invalid.json; do curl -fLO "$base/$f"; done
 python3 validate.py invoice.schema.json invoice.valid.json invoice.invalid.json
 ```
@@ -59,9 +59,10 @@ python3 validate.py invoice.schema.json invoice.valid.json invoice.invalid.json
 ```text
 ACCEPT  invoice.valid.json
 REJECT  invoice.invalid.json
+  fails: total = subtotal + shipping - discount
 ```
 
-`validate.py` is a short script that never imports the compiler; it exits with 1 when any record is rejected. For a record you edited yourself, use the playground's two download buttons: the page prints the matching command and the output to expect.
+`validate.py` is a short script that never imports the compiler. Under each `REJECT` it says why: the constraints the record breaks, or what is wrong with its format. It exits with 1 when any record is rejected. For a record you edited yourself, use the playground's two download buttons: the page prints the matching command and the output to expect.
 
 ## Run it locally
 
