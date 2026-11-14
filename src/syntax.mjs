@@ -54,6 +54,19 @@ function normalizeValues(values, fields, label, { integerDigits, scale, signed }
   return result;
 }
 
+// A constraint is its source text, or {"name": "BR-CO-13", "constraint": "..."}: a
+// name for the reports of a failing record, kept beside the source in the schema.
+function normalizeConstraint(entry) {
+  if (typeof entry === 'string') return { source: entry };
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry) || Object.keys(entry).some(key => !['name', 'constraint'].includes(key)) ||
+      typeof entry.constraint !== 'string') throw new Error('A constraint is a string, or {"name": ..., "constraint": ...}.');
+  if (entry.name === undefined) return { source: entry.constraint };
+  if (typeof entry.name !== 'string' || !/^[^\u0000-\u001f\u007f]{1,64}$/.test(entry.name) || entry.name.trim() !== entry.name) {
+    throw new Error('A constraint\'s name is 1 to 64 printable characters, without spaces at either end.');
+  }
+  return { source: entry.constraint, name: entry.name };
+}
+
 // A list holds amounts ("lines": 10), or objects with named amount fields
 // ("lines": {"maxItems": 10, "fields": ["amount"]}) and any other properties.
 function normalizeList(name, value, precision) {
@@ -81,7 +94,7 @@ function normalizeList(name, value, precision) {
 
 export function normalizeSpec(spec) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('Expected a specification object.');
-  const allowed = new Set(['fields', 'lists', 'constraints', 'integerDigits', 'scale', 'signed', 'optional', 'values', 'title']);
+  const allowed = new Set(['fields', 'lists', 'constraints', 'names', 'integerDigits', 'scale', 'signed', 'optional', 'values', 'title']);
   for (const key of Object.keys(spec)) if (!allowed.has(key)) throw new Error(`Unknown specification option: ${key}`);
   const { fields, lists = {}, constraints, integerDigits = 4, scale = 2, signed = false, optional = [], values = {}, title = 'Arithmetic contract' } = spec;
   requireInteger(integerDigits, 1, 10, 'integerDigits');
@@ -96,13 +109,16 @@ export function normalizeSpec(spec) {
   if (new Set(names).size !== names.length) throw new Error('Field and list names must be unique.');
   names.forEach(checkKeyword);
   if (!Array.isArray(constraints) || constraints.length < 1 || constraints.length > 8) throw new Error('Declare between 1 and 8 equations.');
+  // A normalized specification gives the names apart, as names, one for each constraint.
+  if (spec.names !== undefined && (!Array.isArray(spec.names) || spec.names.length !== constraints.length)) throw new Error('names must give one name, or null, for each constraint.');
+  const entries = constraints.map((entry, i) => normalizeConstraint(spec.names?.[i] == null || typeof entry !== 'string' ? entry : { name: spec.names[i], constraint: entry }));
   if (typeof title !== 'string' || title.length > 200) throw new Error('title must be a string of at most 200 characters.');
   if (typeof signed !== 'boolean') throw new Error('signed must be true or false.');
   // An optional field may be absent, and then counts as zero.
   normalizeOptional(optional, fields, '');
   const precision = { integerDigits, scale, signed }, listed = normalizeValues(values, fields, '', precision);
-  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, normalizeList(name, lists[name], precision)])), constraints: [...constraints], integerDigits, scale,
-    ...(signed && { signed }), ...(optional.length && { optional: [...optional] }), ...(Object.keys(listed).length && { values: listed }), title };
+  return { fields: [...fields], lists: Object.fromEntries(listNames.map(name => [name, normalizeList(name, lists[name], precision)])), constraints: entries.map(({ source }) => source), integerDigits, scale,
+    ...(entries.some(({ name }) => name) && { names: entries.map(({ name }) => name ?? null) }), ...(signed && { signed }), ...(optional.length && { optional: [...optional] }), ...(Object.keys(listed).length && { values: listed }), title };
 }
 
 /** The variables a constraint can read: each field, then each list position, as

@@ -41,6 +41,7 @@ try {
   await page.click('#tamper'); await settle();
   assert.deepEqual(await record(), { ...edited, total: '195.01' });
   assert.equal(await state(), 'invalid');
+  assert.equal(await page.locator('#status-description').textContent(), 'Fails: total = subtotal + shipping - discount.', 'the page says which constraint fails');
   await page.click('#tamper'); await settle();
   assert.deepEqual(await record(), { ...edited, total: '195.02' }, 'a second click adds another cent');
   console.log('shortcut: total 195.00 -> 195.01 -> 195.02, other fields unchanged, rejected');

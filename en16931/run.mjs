@@ -4,7 +4,10 @@
 // elements removed. Run en16931/fetch.sh
 // first; needs Python 3 and a JDK (JAVA_HOME, or java on the PATH).
 //   node en16931/run.mjs [--python] [--plain-ajv] [--write]
-// --python also validates every invoice with Python jsonschema. --plain-ajv times
+// The schema for all eight rules names each rule it finds broken, and the comparison
+// requires those names to be the Schematron's failed rules.
+// --python also validates every invoice with Python jsonschema, and names the broken
+// rules with examples/validate.py. --plain-ajv times
 // Ajv's own compile of each whole schema, which takes minutes. --write records the
 // results in en16931/results.json and the generated block of docs/en16931.md.
 import { spawnSync } from 'node:child_process';
@@ -28,6 +31,9 @@ const contracts = Object.fromEntries(SYNTAXES.map(syntax => [syntax, JSON.parse(
 const form = ({ title, constraints, ...rest }) => JSON.stringify(rest);
 if (form(contracts.ubl) !== form(contracts.cii)) throw new Error('ubl.json and cii.json must declare the same JSON form.');
 const contract = contracts.ubl;
+for (const syntax of SYNTAXES) {
+  if (contracts[syntax].constraints.map(({ name }) => name).join() !== RULES.join()) throw new Error(`${syntax}.json must name its constraints ${RULES.join(', ')}.`);
+}
 const java = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin/java') : 'java';
 const classpath = ['Saxon-HE-12.5.jar', 'xmlresolver-5.2.2.jar', 'xmlresolver-5.2.2-data.jar'].map(jar => join(scratch, 'saxon', jar)).join(':');
 const python = process.env.PYTHON ?? join(root, '.venv/bin/python');
@@ -88,20 +94,27 @@ for (const syntax of SYNTAXES) {
   combined[syntax] = prepare(contracts[syntax]);
   writeFileSync(join(scratch, `${syntax}.schema.json`), JSON.stringify(combined[syntax].schema));
   single[syntax] = contracts[syntax].constraints.map((constraint, i) => {
-    if (!singles.has(constraint)) singles.set(constraint, prepare({ ...contract, title: `EN 16931 ${RULES[i]}`, constraints: [constraint] }));
-    return singles.get(constraint);
+    const key = JSON.stringify(constraint);
+    if (!singles.has(key)) singles.set(key, prepare({ ...contract, title: `EN 16931 ${RULES[i]}`, constraints: [constraint] }));
+    return singles.get(key);
   });
 }
 
-// 5. Validate, time, and compare each rule's verdict with the Schematron's.
+// 5. Validate, time, and compare each rule's verdict with the Schematron's: from the
+// schema for each rule alone, and from the report of the schema for all eight. A report
+// of format problems names no rule, and so fails the comparison.
+const reported = report => !report ? [] : report.format.length ? ['format'] :
+  RULES.filter(rule => report.constraints.some(({ name }) => name === rule));
 for (const doc of documents) {
   doc.representable = representable(doc.record);
   const { validate } = combined[doc.syntax];
   doc.jsonFailed = RULES.filter((_, i) => !single[doc.syntax][i].validate(doc.record));
   doc.combinedValid = validate(doc.record);
+  doc.reportedFailed = reported(doc.combinedValid ? null : validate.failures(doc.record));
   for (let i = 0; i < REPEAT; i++) validate(doc.record);
   doc.ajvMs = median(Array.from({ length: REPEAT }, () => { const start = performance.now(); validate(doc.record); return performance.now() - start; }));
-  doc.agrees = doc.jsonFailed.join() === doc.schematronFailed.join() && doc.combinedValid === !doc.schematronFailed.length;
+  doc.agrees = doc.jsonFailed.join() === doc.schematronFailed.join() && doc.combinedValid === !doc.schematronFailed.length &&
+    doc.reportedFailed.join() === doc.schematronFailed.join();
 }
 
 // 6. Optionally, Python jsonschema with its default options, and Ajv's own compile.
@@ -110,10 +123,13 @@ if (args.includes('--python')) {
   for (const syntax of SYNTAXES) {
     const docs = documents.filter(d => d.syntax === syntax);
     const [info, ...verdicts] = run(python, ['-I', join(root, 'en16931/python_check.py'), join(scratch, `${syntax}.schema.json`)], docs.map(d => JSON.stringify(d.record)).join('\n'));
-    verdicts.forEach((verdict, i) => Object.assign(docs[i], { pythonValid: verdict.valid, pythonMs: verdict.ms }));
+    verdicts.forEach((verdict, i) => Object.assign(docs[i], { pythonValid: verdict.valid, pythonMs: verdict.ms,
+      pythonReported: verdict.failed && (verdict.failed.format ? ['format'] : RULES.filter(rule => verdict.failed.constraints.includes(rule))) }));
     pythonResults = info;
   }
-  pythonResults = { ...pythonResults, agree: documents.filter(d => d.pythonValid === d.combinedValid).length, of: documents.length, medianMs: median(documents.map(d => d.pythonMs)) };
+  pythonResults = { ...pythonResults, agree: documents.filter(d => d.pythonValid === d.combinedValid).length,
+    reportsAgree: documents.filter(d => d.pythonValid === d.combinedValid && (d.pythonReported ?? []).join() === d.reportedFailed.join()).length,
+    of: documents.length, medianMs: median(documents.map(d => d.pythonMs)) };
 }
 if (args.includes('--plain-ajv')) {
   // Fresh processes, since the stack these need depends on what ran before them.
@@ -142,13 +158,13 @@ const summary = {
   schematron: { ublCompileMs: schematron.ubl.compileMs, ciiCompileMs: schematron.cii.compileMs, validateMedianMs: median(documents.map(d => d.schematronMs)) },
   python: pythonResults,
   plainAjv,
-  disagreements: inForm.filter(d => !d.agrees).map(({ syntax, example, change, schematronFailed, jsonFailed, combinedValid }) => ({ syntax, example, change, schematronFailed, jsonFailed, combinedValid }))
+  disagreements: inForm.filter(d => !d.agrees).map(({ syntax, example, change, schematronFailed, jsonFailed, combinedValid, reportedFailed }) => ({ syntax, example, change, schematronFailed, jsonFailed, combinedValid, reportedFailed }))
 };
 console.log(JSON.stringify(summary, null, 2));
 
 if (args.includes('--write')) {
-  const rows = documents.map(({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, agrees, schematronMs, ajvMs, pythonValid, pythonMs }) =>
-    ({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, agrees, schematronMs, ajvMs, pythonValid, pythonMs }));
+  const rows = documents.map(({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs }) =>
+    ({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs }));
   writeFileSync(join(root, 'en16931/results.json'), JSON.stringify({ summary, documents: rows }, null, 2) + '\n');
   const page = join(root, 'docs/en16931.md'), text = readFileSync(page, 'utf8');
   const kB = bytes => `${(bytes / 1000).toLocaleString('en-US', { maximumFractionDigits: 0 })} kB`;
@@ -176,7 +192,7 @@ if (args.includes('--write')) {
     `| Size | ${kB(readFileSync(join(artefacts, 'ubl/xslt/EN16931-UBL-validation.xslt')).length)} (UBL), ${kB(readFileSync(join(artefacts, 'cii/xslt/EN16931-CII-validation.xslt')).length)} (CII) | ${kB(combined.ubl.bytes)} (UBL), ${kB(combined.cii.bytes)} (CII) |`,
     `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${seconds(combined.ubl.prepareMs)} (UBL), ${seconds(combined.cii.prepareMs)} (CII), Ajv ${summary.ajv}, resources added bottom-up |`,
     `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${pythonResults.medianMs >= 1000 ? `${(pythonResults.medianMs / 1000).toFixed(1)} s` : `${ms(pythonResults.medianMs)} ms`} in Python jsonschema ${pythonResults.jsonschema}` : ''} |`,
-    ...(pythonResults ? [`| Python \`jsonschema\`, default options | | same verdict on ${pythonResults.agree} of ${pythonResults.of} |`] : []),
+    ...(pythonResults ? [`| Python \`jsonschema\`, default options | | same verdict on ${pythonResults.agree} of ${pythonResults.of}; \`validate.py\` names the same rules on ${pythonResults.reportsAgree} |`] : []),
     ...(plainAjv ?? []).map(({ options, syntax, compiled, ms, crashed, overflowed, agree, of }) => `| Ajv's own \`compile\`, ${options === 'default' ? 'default options' : '`inlineRefs: false`'}, ${syntax.toUpperCase()} | | ${!compiled ? 'overflows the stack while compiling'
       : `compiles in ${seconds(ms)}; ${crashed ? 'then overflows the stack while validating' : `${overflowed ? `${overflowed} of ${of} validations overflow the stack, ` : ''}same verdict on ${agree} of ${of}`}`} |`),
     '',
@@ -185,4 +201,5 @@ if (args.includes('--write')) {
   ].join('\n');
   writeFileSync(page, text.replace(/<!-- results:start -->[\s\S]*<!-- results:end -->/, `<!-- results:start -->\n${block}\n<!-- results:end -->`));
 }
-process.exit(summary.agree === summary.compared && !summary.outsideForm.length ? 0 : 1);
+process.exit(summary.agree === summary.compared && !summary.outsideForm.length &&
+  (!pythonResults || pythonResults.agree === pythonResults.of && pythonResults.reportsAgree === pythonResults.of) ? 0 : 1);

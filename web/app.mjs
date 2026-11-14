@@ -1,6 +1,7 @@
 import { presets } from '../src/presets.mjs';
 import { nudgeField } from '../src/nudge.mjs';
 import { normalizeSpec } from '../src/syntax.mjs';
+import { describeFailures } from '../src/failures.mjs';
 const $ = id => document.getElementById(id);
 const worker = new Worker('./worker.js', { type: 'module' });
 const RECORD_HELP = 'Amounts are strings. A single wrong cent should fail.';
@@ -34,9 +35,11 @@ function boundaries(spec) {
     ? `Converted tally JSON, not decimal strings · values ${range} · ${digits} · one column per digit · extra properties rejected`
     : `Decimal strings · ${range} · ${digits} · all declared fields required · extra fields rejected`;
 }
-function updateHandoff(valid) {
+function updateHandoff(valid, failures) {
   $('handoff-command').textContent = `python3 -m pip install jsonschema==4.25.1\npython3 validate.py ${schemaName()} ${recordName()}`;
-  $('handoff-expected').textContent = valid === undefined ? '—' : `${valid ? 'ACCEPT' : 'REJECT'}  ${recordName()}`;
+  // validate.py prints why under REJECT, as the page does.
+  $('handoff-expected').textContent = valid === undefined ? '—'
+    : [`${valid ? 'ACCEPT' : 'REJECT'}  ${recordName()}`, ...(failures ? describeFailures(failures) : [])].join('\n');
   $('handoff-note').textContent = tally()
     ? 'Tally mode: this schema checks the converted validation JSON from “Download tally record”, not your decimal record. The original record is rejected by this schema.'
     : 'In tally mode the schema checks converted validation JSON instead, so download its tally record as well.';
@@ -104,21 +107,26 @@ worker.onmessage = ({ data }) => {
     ? 'This page validates the same tally schema you download; encoding the record is timed separately.'
     : 'To cut preparation time, this page gives Ajv an in-memory unbundled copy of the schema; the download is the packed file itself. Smaller is not faster: in both tested validators the packed default validates more slowly than the larger mixed-radix schema (<a href="https://github.com/fMindstormer/schema-calc#smallest-is-not-fastest" target="_blank" rel="noreferrer">measurements</a>).';
   if (data.encodingError) { setState('invalid', 'Record cannot be encoded', data.encodingError); updateHandoff(); return; }
-  updateHandoff(data.valid);
+  updateHandoff(data.valid, data.failures);
   if (data.valid) setState('valid', 'Record accepted', 'Every field has the right format, and every declared equation holds.');
   else {
-    // Format checks sit under properties and items; the constraints on each line sit in the items' allOf.
-    // An optional field, of the record or of a line, is required only inside a constraint,
-    // by has or an arithmetic test. A field with listed values is checked by enum.
-    const declared = JSON.parse($('contract').value);
-    const optional = new Set([...(declared.optional ?? []), ...Object.values(declared.lists ?? {}).flatMap(list => list?.optional ?? [])]);
-    const shapeError = data.errors.find(e => ['type', 'additionalProperties'].includes(e.keyword) || (e.keyword === 'required' && !optional.has(e.params.missingProperty)) ||
-      (['pattern', 'enum'].includes(e.keyword) && e.schemaPath.startsWith('#/properties/') && !e.schemaPath.includes('/allOf/')));
-    setState('invalid', 'Record rejected', shapeError ? `${shapeError.instancePath || 'Record'} ${shapeError.message}.` : 'A declared equation or field format does not hold. The generated schema rejected this record.');
+    setState('invalid', 'Record rejected', explain(data.failures));
     $('error-details').hidden = false;
     $('validator-errors').textContent = JSON.stringify(data.errors, null, 2);
   }
 };
+// One sentence for the status line; the handoff lists every failure as validate.py does.
+function explain({ format, constraints }) {
+  const at = pointer => pointer || 'the record';
+  if (format.length) {
+    const by = problem => format.filter(p => p.problem === problem).map(p => at(p.at));
+    return `The record's format is wrong: ${[['missing', 'missing'], ['unexpected', 'unexpected'], ['invalid', 'not in the declared format']]
+      .filter(([problem]) => by(problem).length).map(([problem, words]) => `${by(problem).join(', ')} ${by(problem).length > 1 ? 'are' : 'is'} ${words}`).join('; ')}.`;
+  }
+  if (!constraints.length) return 'The generated schema rejected this record, though no constraint or format check fails on its own.';
+  return constraints.map(({ name, source, list, items }) =>
+    `${name ? `${name} fails` : 'Fails'}: ${source}${list ? ` at ${items.map(i => `/${list}/${i}`).join(', ')}` : ''}.`).join(' ');
+}
 worker.onerror = () => { setState('error', 'Validator could not start', 'Reload the page. If this persists, run npm run build again.'); disableDownload(); };
 // One line per list item keeps the whole record in view; the record itself stays expanded.
 const formatRecord = record => JSON.stringify(record, null, 2)

@@ -128,6 +128,19 @@ A list's sum reads each column through how many lines have each digit there, wit
 
 Ajv is a development dependency for the demo, tests and playground; it is not part of the compiler or the exported schema. See the runnable [JavaScript](examples/validate.mjs) and [Python](examples/validate.py) examples for the independent-validator handoff.
 
+### Why a record fails
+
+A validator's verdict is a yes or a no, and its error messages point into a decision graph. To say which constraint a rejected record breaks, the compiler marks each constraint's subschema with its source in `$comment` and, if the contract names it, its name in `title`. [examples/validate.py](examples/validate.py) reads these from Python `jsonschema`'s own errors, with nothing else installed, and prints them under `REJECT`:
+
+```text
+REJECT  invoice.invalid.json
+  fails: total = subtotal + shipping - discount
+```
+
+A constraint on each line lists the lines that break it, as JSON Pointers: `fails: lines.amount = lines.net + lines.tax at /lines/0`. A named constraint prints its name: `fails BR-CO-13: totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal`. When the record's format is wrong, its arithmetic means nothing, so the report lists the format problems instead: `missing: /total`, `unexpected: /note`, `invalid: /lines/2/net`. In JavaScript, `prepareValidator(schema).failures(record)` gives the same report as an object, checking the format with a schema of the format alone and each constraint with its own subschema; [describeFailures](src/failures.mjs) prints it as `validate.py` does. The playground shows it under the verdict.
+
+Only a rejected record needs a report, and it costs about as much as validating it again. The verdict never depends on it. The tests compare every report with schemas compiled from one constraint at a time, and Python's report with Ajv's on every rejected record of the test corpora; on [EN 16931](docs/en16931.md), each report names exactly the rules the official Schematron finds broken.
+
 ### Input contract
 
 | Supported | Boundary |
@@ -141,6 +154,7 @@ Ajv is a development dependency for the demo, tests and playground; it is not pa
 | A field with listed values, `"values": {"rate": ["0", "7", "19"]}`, times another field: `rate * base` | One such field per relation, multiplying fields rather than sums; the field takes only its listed values, up to 32; one relation is compiled for each value; no other products of fields, and no tally encoding |
 | `abs(x)`, an amount without its sign | One field or one line's field; no tally encoding |
 | Repeated terms, unary signs, several constraints at once | Up to 16 fields, 8 constraints and 16 source terms per constraint |
+| A name for a constraint, `{"name": "BR-CO-13", "constraint": "..."}`, for [reports](#why-a-record-fails) | 1–64 printable characters; it changes no verdict |
 | Exact decimal **strings**, nonnegative unless `"signed": true` allows a leading minus sign | No JSON numbers, plus signs, exponents or leading zeroes; no tally encoding for signed amounts |
 | Optional fields, `"optional": ["paid"]`, which count as zero when absent | On the record, or in a list's declaration for its items' fields; no tally encoding |
 | Relations joined by `and` and `or`, and `has paid` or `no paid` for an optional field or a list: `has paid and due = total - paid or no paid and due = total` | `and` binds first; no parentheses or `not`; up to 8 relations and tests per constraint; on each line, relations on that line and `has lines.x` for its optional fields; `and`, `or`, `has` and `no` cannot name fields; no tally encoding |
@@ -236,7 +250,7 @@ npm run check:handoff
 
 On Windows, use `.venv\Scripts\python` for the Python commands; see [CONTRIBUTING.md](CONTRIBUTING.md). Python 3.13 is the reference version. Tests pin Ajv 8.20.0, jsonschema 4.25.1 and Playwright 1.64.1.
 
-The 56 Node tests cover the compiler, both representations, browser preparation, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
+The 62 Node tests cover the compiler, both representations, browser preparation, failure reports, the playground's one-cent shortcut and the bounded optimizer. `check:handoff` drives the built playground in Chromium, downloads its files and validates them with a fresh Python environment. The generated corpus is checked independently in both validators:
 
 | Suite | Checks in each validator | Schemas |
 |---|---:|---:|
@@ -247,7 +261,7 @@ The 56 Node tests cover the compiler, both representations, browser preparation,
 
 The same flat, tally and example suites also run through ten more validators in JavaScript, Python, Go, Java and C#, each with its default options; see the [compatibility table](compat/README.md). None gives a wrong answer, and nine of the twelve load every schema. @cfworker/json-schema refuses resources nested inside other resources, and loads everything with the `--defs` layout. @exodus/schemasafe times out loading some of the largest, from about 170 kB up, such as those compiled from long lists or from products by listed values. jsonschema-rs runs out of memory loading the larger flat schemas in either layout.
 
-Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema.
+Optimizer totals include repeated records across profiles. Its larger suites run separately via the [research commands](bench/README.md). Python also checks each schema against the Draft 2020-12 meta-schema, and, for up to 200 evenly spaced rejected records per flat or tally schema, that `validate.py` explains the rejection as Ajv's report does: 12,868 reports in all. Run on every rejected record of both corpora, 55,605 of them, the two reports were the same.
 
 Coverage includes exhaustive small additions and comparisons, lists of every length up to their maximum, including empty and malformed lists and lines with other properties, constraints on each line, every one-digit signed sum, signed bounds and malformed signs, absent and explicit optional terms, optional fields of a line, relations joined by `and` and `or` with presence tests, on the record and on each line, against an independent oracle, `abs()`, coefficients ending in zeros, products by fields with listed values, including fractional and negative values, and BR-CO-17's rounded VAT tolerance against the Schematron's formula, every pair of two-digit addends, independent BigInt-oracle cases for equations and for inequalities one unit either side of the boundary, long carries, signed coefficients from 1 to 1,000 written either way round, repeated terms, combined-constant overflow, malformed values, reference closure and precision boundaries. Finite tests complement the carry proof; they do not prove every possible source contract. The [Verify schemas](.github/workflows/ci.yml) workflow runs the Node suites and build on Node 20 and 24, the Python suites once, and the browser handoff, on pushes and pull requests. [Validator compatibility](.github/workflows/compat.yml) reruns the cross-language comparison when the compiler or examples change. [Release links](.github/workflows/release-links.yml) fails if the release this README links is missing or lacks a file it downloads.
 

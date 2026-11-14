@@ -7,6 +7,7 @@ import { compile } from '../src/compiler.mjs';
 import { presets } from '../src/presets.mjs';
 import { schemaResources, MAX_DEPTH, MAX_SUBSCHEMAS } from '../src/resources.mjs';
 import { prepareValidator } from '../src/ajv-validator.mjs';
+import { describeFailures } from '../src/failures.mjs';
 import { compileTally, encodeTally, decodeTally, MAX_TALLY_COPIES } from '../src/tally.mjs';
 import { parseEquation, parseConstraint, parseRule, normalizeSpec, instantiate } from '../src/syntax.mjs';
 
@@ -897,15 +898,6 @@ test('browser preparation avoids deep compiler recursion', () => {
   `], { cwd: new URL('../', import.meta.url), stdio: 'pipe' });
 });
 
-test('browser preparation preserves the entire independent arithmetic corpus', () => {
-  for (const group of corpus) {
-    const validate = prepareValidator(group.schema);
-    for (const { data, expected } of group.cases) {
-      assert.equal(validate(data), expected, `${group.name}: ${JSON.stringify(data)}`);
-    }
-  }
-});
-
 test('different contracts can coexist in one standard validator registry', () => {
   const a = compile(presets.invoice.spec).schema;
   const b = compile(presets.allocation.spec).schema;
@@ -1022,6 +1014,21 @@ test('tally arithmetic scales to twelve digits and the sixteen-term limit', () =
       assert.deepEqual(decodeTally(spec, data), record);
       assert.equal(validate(data), expected);
       group.cases.push({ data, expected });
+    }
+  }
+});
+
+// Last but one: the corpora are complete, and the next test writes them.
+test('browser preparation preserves the entire independent arithmetic corpus, and explains each rejection', () => {
+  // A rejected record's report goes into the corpus, for validate.py to give the same.
+  for (const group of [...corpus, ...tallyCorpus]) {
+    const validate = prepareValidator(group.schema);
+    for (const item of group.cases) {
+      assert.equal(validate(item.data), item.expected, `${group.name}: ${JSON.stringify(item.data)}`);
+      if (item.expected) continue;
+      const report = validate.failures(item.data);
+      assert.ok(report.format.length || report.constraints.length, `${group.name}: ${JSON.stringify(item.data)} fails nothing on its own`);
+      item.failures = describeFailures(report);
     }
   }
 });

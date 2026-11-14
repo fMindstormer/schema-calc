@@ -13,13 +13,13 @@
       "values": { "rate": ["0", "6", "10", "12", "15", "19", "21", "22", "25", "27"] } }
   },
   "constraints": [
-    "lineNetTotal = sum(lines.netAmount)",
-    "has allowanceTotal and allowanceTotal = sum(allowances.amount) or no allowanceTotal and no allowances",
-    "has chargeTotal and chargeTotal = sum(charges.amount) or no chargeTotal and no charges",
-    "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal",
-    "no vatBreakdown or vatTotal = sum(vatBreakdown.taxAmount)",
-    "has vatTotal and totalWithVat = totalWithoutVat + vatTotal",
-    "amountDue = totalWithVat - paidAmount + roundingAmount",
-    "vatBreakdown.rate < 0.5 and vatBreakdown.taxAmount >= -0.5 and vatBreakdown.taxAmount < 0.5 or vatBreakdown.rate >= 0.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) >= -99.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) < 99.5"
+    { "name": "BR-CO-10", "constraint": "lineNetTotal = sum(lines.netAmount)" },
+    { "name": "BR-CO-11", "constraint": "has allowanceTotal and allowanceTotal = sum(allowances.amount) or no allowanceTotal and no allowances" },
+    { "name": "BR-CO-12", "constraint": "has chargeTotal and chargeTotal = sum(charges.amount) or no chargeTotal and no charges" },
+    { "name": "BR-CO-13", "constraint": "totalWithoutVat = lineNetTotal - allowanceTotal + chargeTotal" },
+    { "name": "BR-CO-14", "constraint": "no vatBreakdown or vatTotal = sum(vatBreakdown.taxAmount)" },
+    { "name": "BR-CO-15", "constraint": "has vatTotal and totalWithVat = totalWithoutVat + vatTotal" },
+    { "name": "BR-CO-16", "constraint": "amountDue = totalWithVat - paidAmount + roundingAmount" },
+    { "name": "BR-CO-17", "constraint": "vatBreakdown.rate < 0.5 and vatBreakdown.taxAmount >= -0.5 and vatBreakdown.taxAmount < 0.5 or vatBreakdown.rate >= 0.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) >= -99.5 and vatBreakdown.rate * abs(vatBreakdown.taxableAmount) - 100 * abs(vatBreakdown.taxAmount) < 99.5" }
   ]
 }

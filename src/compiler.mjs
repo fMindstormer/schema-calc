@@ -271,9 +271,12 @@ export function compile(input, { maxDepth = MAX_DEPTH, maxSubschemas = MAX_SUBSC
   // presence tests first, since they fail fastest.
   const clause = (atoms, each) => [...atoms.filter(atom => !atom.terms), ...atoms.filter(atom => atom.terms)]
     .map(atom => atom.terms ? ref(machines.get(atom)) : presence(atom, each));
-  const tops = rules.map(({ source, clauses, each }) => {
-    if (clauses.length === 1) return { $comment: source, allOf: clause(clauses[0], each) };
-    return { $comment: source, anyOf: clauses.map(atoms => { const parts = clause(atoms, each); return parts.length === 1 ? parts[0] : { allOf: parts }; }) };
+  // Each constraint's subschema carries its source in $comment, and its name in title,
+  // so that a report can say which constraint a record fails (failures.mjs).
+  const tops = rules.map(({ source, clauses, each }, i) => {
+    const label = { $comment: source, ...(spec.names?.[i] && { title: spec.names[i] }) };
+    if (clauses.length === 1) return { ...label, allOf: clause(clauses[0], each) };
+    return { ...label, anyOf: clauses.map(atoms => { const parts = clause(atoms, each); return parts.length === 1 ? parts[0] : { allOf: parts }; }) };
   });
   // A constraint on each line is one machine over the line's fields, applied to every
   // item of the list, so it does not grow with the list's length.

@@ -103,7 +103,7 @@ export function compileTally(input) {
       defs[id] = { if: { type: 'null' }, then: exact ? value === terminal : value <= terminal, else: decision };
       return ref(id);
     }
-    const root = { $comment: equation.source, ...carry(0) };
+    const root = { $comment: equation.source, ...(spec.names?.[index] && { title: spec.names[index] }), ...carry(0) };
     maxArithmeticCounts += maxBranches;
     return root;
   });

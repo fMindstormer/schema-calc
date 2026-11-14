@@ -30,8 +30,11 @@ self.onmessage = ({ data: { id, spec, record, encoding = 'flat' } }) => {
     // All record validation is performed by unmodified Ajv against the generated schema.
     const valid = cached.validate(payload);
     const validationMs = performance.now() - start;
+    const errors = cached.validate.errors ?? [];
+    // Why the record fails: its format, or each constraint it fails on its own.
+    const failures = valid ? null : cached.validate.failures(payload);
     // Include the artifact even for cache hits: the UI may have discarded an earlier reply.
-    self.postMessage({ id, valid, encoding, payload, encodeMs, errors: cached.validate.errors ?? [], stats: cached.stats, compileMs: cached.compileMs, prepareMs: cached.prepareMs, validationMs, schema: cached.schema });
+    self.postMessage({ id, valid, encoding, payload, encodeMs, errors, failures, stats: cached.stats, compileMs: cached.compileMs, prepareMs: cached.prepareMs, validationMs, schema: cached.schema });
   } catch (error) {
     self.postMessage({ id, error: error.message, phase, stack: error.stack });
   }
