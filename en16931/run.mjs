@@ -169,8 +169,8 @@ if (args.includes('--write')) {
   const page = join(root, 'docs/en16931.md'), text = readFileSync(page, 'utf8');
   const kB = bytes => `${(bytes / 1000).toLocaleString('en-US', { maximumFractionDigits: 0 })} kB`;
   const ms = value => value < 10 ? value.toFixed(2) : value.toFixed(0);
-  // One figure when both syntaxes have the same schema.
-  const bothSizes = sizes => sizes.ubl === sizes.cii ? kB(sizes.ubl) : `${kB(sizes.ubl)} (UBL), ${kB(sizes.cii)} (CII)`;
+  // One figure when both syntaxes have schemas of the same size, to the kilobyte.
+  const bothSizes = sizes => kB(sizes.ubl) === kB(sizes.cii) ? kB(sizes.ubl) : `${kB(sizes.ubl)} (UBL), ${kB(sizes.cii)} (CII)`;
   const seconds = value => `${(value / 1000).toFixed(0)} s`;
   const bySyntax = syntax => {
     const docs = inForm.filter(d => d.syntax === syntax);
