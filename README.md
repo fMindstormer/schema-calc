@@ -35,7 +35,7 @@ The example schema is **41,391 bytes**, down from **284,300 bytes** for the firs
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/demo.png">
-  <img src="docs/demo.gif" width="880" alt="The playground accepts an invoice totalling 122.45, then rejects it after Add one cent changes the total to 122.46. The schema, the record and validate.py are downloaded, and stock Python jsonschema, in an environment without Schema Calc, prints REJECT for the same record.">
+  <img src="docs/demo.gif" width="880" alt="The playground accepts an invoice totalling 122.45, then rejects it after Add one cent changes the total to 122.46, naming the failing constraint: total = subtotal + shipping - discount. The schema, the record and validate.py are downloaded, and stock Python jsonschema, in an environment without Schema Calc, prints REJECT for the same record with the same failing constraint.">
 </picture>
 
 1. The [playground](https://fmindstormer.github.io/schema-calc/) accepts the correct invoice.

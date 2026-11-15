@@ -13,6 +13,8 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = `${root}bench/scratch/demo`, python = process.env.PYTHON || 'python3';
 const stageUrl = new URL('stage.html', import.meta.url).href, port = 4175, appUrl = `http://127.0.0.1:${port}/`;
 const server = spawn(process.execPath, [`${root}scripts/serve.mjs`], { env: { ...process.env, PORT: port }, stdio: ['ignore', 'pipe', 'inherit'] });
+// Stop the server however the recording ends, failed assertions included.
+process.on('exit', () => server.kill());
 await new Promise(resolve => server.stdout.once('data', resolve));
 const files = `${out}/files`, venv = `${out}/venv`;
 rmSync(out, { recursive: true, force: true }); mkdirSync(files, { recursive: true });
@@ -20,7 +22,7 @@ execFileSync(python, ['-m', 'venv', venv]);
 execFileSync(`${venv}/bin/python`, ['-m', 'pip', 'install', '-q', '--disable-pip-version-check', 'jsonschema==4.25.1']);
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 960, height: 600 }, acceptDownloads: true, recordVideo: { dir: `${out}/video`, size: { width: 960, height: 600 } } });
+const context = await browser.newContext({ viewport: { width: 960, height: 690 }, acceptDownloads: true, recordVideo: { dir: `${out}/video`, size: { width: 960, height: 690 } } });
 const born = Date.now();
 const page = await context.newPage();
 await page.goto(stageUrl);
@@ -48,6 +50,10 @@ await stage('caption', 2, 'Add one cent to the total');
 await click('#tamper');
 await frame.waitForFunction(() => document.querySelector('#result').dataset.state === 'invalid');
 assert.equal(JSON.parse(await frame.locator('#record').inputValue()).total, '122.46');
+assert.equal(await frame.locator('#status-description').textContent(), 'Fails: total = subtotal + shipping - discount.');
+// The verdict and its reason are in frame. Boxes are in the stage's coordinates.
+const verdictBox = await frame.locator('#result').boundingBox();
+assert.ok(verdictBox.y + verdictBox.height <= page.viewportSize().height, `the verdict ends at ${verdictBox.y + verdictBox.height}`);
 await stage('caption', 2, 'Add one cent to the total: rejected', 'total 122.46');
 await sleep(2600);
 await stage('hideCursor');
@@ -72,7 +78,7 @@ const packages = sh(['python3', '-m', 'pip', 'list', '--format=freeze', '--disab
 let verdict, code = 0;
 try { verdict = sh(['python3', 'validate.py', 'invoice.schema.json', 'invoice.record.json']); }
 catch (error) { verdict = error.stdout.trimEnd(); code = error.status; }
-assert.equal(verdict, 'REJECT  invoice.record.json'); assert.equal(code, 1);
+assert.equal(verdict, 'REJECT  invoice.record.json\n  fails: total = subtotal + shipping - discount'); assert.equal(code, 1);
 assert.ok(!/schema.?calc/i.test(packages), 'Schema Calc is not installed');
 writeFileSync(`${out}/transcript.txt`, `$ ls -1\n${listing}\n$ python3 -m pip list --format=freeze\n${packages}\n$ python3 validate.py invoice.schema.json invoice.record.json\n${verdict}\n(exit ${code})\n`);
 
@@ -81,7 +87,8 @@ await stage('showTerminal');
 await sleep(500);
 await stage('run', 'ls -1', listing);
 await stage('run', 'python3 -m pip list --format=freeze', packages);
-await stage('run', 'python3 validate.py invoice.schema.json invoice.record.json', verdict, 'reject');
+const [rejected, ...reasons] = verdict.split('\n');
+await stage('run', 'python3 validate.py invoice.schema.json invoice.record.json', rejected, 'reject', reasons.join('\n'));
 await stage('caption', 4, 'Stock Python jsonschema: rejected too', 'no Schema Calc installed');
 await sleep(3200);
 await page.screenshot({ path: `${out}/poster-terminal.png` });

@@ -43,14 +43,15 @@
     hideCursor() { document.getElementById('cursor').style.opacity = 0; },
     file(name) { const t = document.getElementById('tray'); t.style.display = 'block'; document.getElementById('files').insertAdjacentHTML('beforeend', `<div>${name}</div>`); },
     showTerminal() { document.getElementById('terminal').classList.add('on'); document.getElementById('tray').style.display = 'none'; this.hideCursor(); },
-    // Types each command, then prints its captured output verbatim.
-    async run(command, output, cls = 'dim') {
+    // Types each command, then prints its captured output verbatim; rest follows in plain text.
+    async run(command, output, cls = 'dim', rest = '') {
       const lines = document.getElementById('lines');
       const row = document.createElement('div'); row.innerHTML = '<span class="prompt">$ </span>'; lines.append(row);
       const typed = document.createElement('span'); row.append(typed);
       for (const ch of command) { typed.textContent += ch; await sleep(28); }
       await sleep(350);
       if (output) { const out = document.createElement('div'); out.className = cls; out.textContent = output; lines.append(out); }
+      if (rest) { const more = document.createElement('div'); more.textContent = rest; lines.append(more); }
       await sleep(500);
     }
   };
