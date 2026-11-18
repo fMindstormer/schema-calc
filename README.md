@@ -84,6 +84,10 @@ npm start
 
 Open [localhost:4173](http://127.0.0.1:4173), change the record, click **Add one cent**, and download the schema. Try an allocation that must sum to 100, `999.99 + 0.01 = 1000.00` to exercise a long carry, an even split, where two inequalities hold each share to a third of the total rounded down to the cent, or line items, each its net plus tax, that add up to the total. Compilation and validation run locally in a browser worker; the built playground needs no external assets or services.
 
+## Why I built this
+
+This started as a question—is bounded decimal arithmetic expressible in standard JSON Schema?—and became a compiler when the answer was yes.
+
 ## What is it useful for?
 
 A schema can travel with a dataset, configuration file or API contract. Schema Calc lets that artifact carry exact reconciliation rules too: totals, percentage budgets, balances, or quantities that must add up. A receiving system needs a compatible Draft 2020-12 validator, rather than an implementation of each rule in each host language.
