@@ -1,4 +1,5 @@
-"""Validate the exact exported schemas with the independent Python implementation.
+"""Validate the exact exported schemas with the independent Python implementation,
+both stock and as examples/validate.py prepares it, with its resources crawled once.
 
 For an evenly spaced sample of each schema's rejected records, also check that
 examples/validate.py explains the rejection as Ajv's report, written by npm test,
@@ -24,11 +25,13 @@ started = time.perf_counter()
 count = reports = 0
 for group in corpus:
     Draft202012Validator.check_schema(group["schema"])
-    validate = Draft202012Validator(group["schema"])
+    stock = Draft202012Validator(group["schema"])
+    validate = validate_py.validator_of(group["schema"])
     for case in group["cases"]:
-        actual = validate.is_valid(case["data"])
-        if actual != case["expected"]:
-            raise AssertionError(f'{group["name"]}: {case["data"]!r}; expected {case["expected"]}, got {actual}')
+        for label, validator in (("stock", stock), ("validate.py", validate)):
+            actual = validator.is_valid(case["data"])
+            if actual != case["expected"]:
+                raise AssertionError(f'{group["name"]}: {case["data"]!r}; expected {case["expected"]}, {label} got {actual}')
         count += 1
     rejected = [case for case in group["cases"] if not case["expected"]]
     step = max(1, -(-len(rejected) // REPORTS_PER_SCHEMA))

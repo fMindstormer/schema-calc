@@ -124,12 +124,15 @@ if (args.includes('--python')) {
     const docs = documents.filter(d => d.syntax === syntax);
     const [info, ...verdicts] = run(python, ['-I', join(root, 'en16931/python_check.py'), join(scratch, `${syntax}.schema.json`)], docs.map(d => JSON.stringify(d.record)).join('\n'));
     verdicts.forEach((verdict, i) => Object.assign(docs[i], { pythonValid: verdict.valid, pythonMs: verdict.ms,
+      validatePyValid: verdict.validatePyValid, validatePyMs: verdict.validatePyMs,
       pythonReported: verdict.failed && (verdict.failed.format ? ['format'] : RULES.filter(rule => verdict.failed.constraints.includes(rule))) }));
-    pythonResults = info;
+    pythonResults = { ...info, validatePySetupMs: { ...pythonResults?.validatePySetupMs, [syntax]: info.validatePySetupMs } };
   }
+  const fastAgrees = d => d.validatePyValid === d.combinedValid;
   pythonResults = { ...pythonResults, agree: documents.filter(d => d.pythonValid === d.combinedValid).length,
-    reportsAgree: documents.filter(d => d.pythonValid === d.combinedValid && (d.pythonReported ?? []).join() === d.reportedFailed.join()).length,
-    of: documents.length, medianMs: median(documents.map(d => d.pythonMs)) };
+    validatePyAgree: documents.filter(fastAgrees).length,
+    reportsAgree: documents.filter(d => fastAgrees(d) && (d.pythonReported ?? []).join() === d.reportedFailed.join()).length,
+    of: documents.length, medianMs: median(documents.map(d => d.pythonMs)), validatePyMedianMs: median(documents.map(d => d.validatePyMs)) };
 }
 if (args.includes('--plain-ajv')) {
   // Fresh processes, since the stack these need depends on what ran before them.
@@ -163,8 +166,8 @@ const summary = {
 console.log(JSON.stringify(summary, null, 2));
 
 if (args.includes('--write')) {
-  const rows = documents.map(({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs }) =>
-    ({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs }));
+  const rows = documents.map(({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs, validatePyValid, validatePyMs }) =>
+    ({ syntax, example, change, representable, schematronFailed, otherFailed, jsonFailed, combinedValid, reportedFailed, agrees, schematronMs, ajvMs, pythonValid, pythonReported, pythonMs, validatePyValid, validatePyMs }));
   writeFileSync(join(root, 'en16931/results.json'), JSON.stringify({ summary, documents: rows }, null, 2) + '\n');
   const page = join(root, 'docs/en16931.md'), text = readFileSync(page, 'utf8');
   const kB = bytes => `${(bytes / 1000).toLocaleString('en-US', { maximumFractionDigits: 0 })} kB`;
@@ -172,6 +175,7 @@ if (args.includes('--write')) {
   // One figure when both syntaxes have schemas of the same size, to the kilobyte.
   const bothSizes = sizes => kB(sizes.ubl) === kB(sizes.cii) ? kB(sizes.ubl) : `${kB(sizes.ubl)} (UBL), ${kB(sizes.cii)} (CII)`;
   const seconds = value => `${(value / 1000).toFixed(0)} s`;
+  const duration = value => value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${ms(value)} ms`;
   const bySyntax = syntax => {
     const docs = inForm.filter(d => d.syntax === syntax);
     return `| ${syntax.toUpperCase()} | ${docs.filter(d => !d.change).length} | ${docs.filter(d => d.change).length} | ${docs.filter(d => d.schematronFailed.length).length} | ${docs.filter(d => d.agrees).length} of ${docs.length} |`;
@@ -191,8 +195,9 @@ if (args.includes('--write')) {
     `| Rules checked | All of EN 16931 | BR-CO-10 to BR-CO-17 |`,
     `| Size | ${kB(readFileSync(join(artefacts, 'ubl/xslt/EN16931-UBL-validation.xslt')).length)} (UBL), ${kB(readFileSync(join(artefacts, 'cii/xslt/EN16931-CII-validation.xslt')).length)} (CII) | ${kB(combined.ubl.bytes)} (UBL), ${kB(combined.cii.bytes)} (CII) |`,
     `| Preparation | ${ms(schematron.ubl.compileMs)} ms (UBL), ${ms(schematron.cii.compileMs)} ms (CII), Saxon-HE 12.5 | ${seconds(combined.ubl.prepareMs)} (UBL), ${seconds(combined.cii.prepareMs)} (CII), Ajv ${summary.ajv}, resources added bottom-up |`,
-    `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; ${pythonResults.medianMs >= 1000 ? `${(pythonResults.medianMs / 1000).toFixed(1)} s` : `${ms(pythonResults.medianMs)} ms`} in Python jsonschema ${pythonResults.jsonschema}` : ''} |`,
-    ...(pythonResults ? [`| Python \`jsonschema\`, default options | | same verdict on ${pythonResults.agree} of ${pythonResults.of}; \`validate.py\` names the same rules on ${pythonResults.reportsAgree} |`] : []),
+    `| Median validation | ${ms(summary.schematron.validateMedianMs)} ms | ${ms(summary.schema.validateMedianMs)} ms${pythonResults ? `; in Python jsonschema ${pythonResults.jsonschema}, ${duration(pythonResults.medianMs)} stock and ${duration(pythonResults.validatePyMedianMs)} through \`validate.py\`` : ''} |`,
+    ...(pythonResults ? [`| Python \`jsonschema\`, default options | | same verdict on ${pythonResults.agree} of ${pythonResults.of} |`,
+      `| [validate.py](../examples/validate.py), resources crawled once | | sets up in ${seconds(pythonResults.validatePySetupMs.ubl)} (UBL), ${seconds(pythonResults.validatePySetupMs.cii)} (CII); same verdict on ${pythonResults.validatePyAgree} of ${pythonResults.of}, and names the same rules on ${pythonResults.reportsAgree} |`] : []),
     ...(plainAjv ?? []).map(({ options, syntax, compiled, ms, crashed, overflowed, agree, of }) => `| Ajv's own \`compile\`, ${options === 'default' ? 'default options' : '`inlineRefs: false`'}, ${syntax.toUpperCase()} | | ${!compiled ? 'overflows the stack while compiling'
       : `compiles in ${seconds(ms)}; ${crashed ? 'then overflows the stack while validating' : `${overflowed ? `${overflowed} of ${of} validations overflow the stack, ` : ''}same verdict on ${agree} of ${of}`}`} |`),
     '',
@@ -202,4 +207,4 @@ if (args.includes('--write')) {
   writeFileSync(page, text.replace(/<!-- results:start -->[\s\S]*<!-- results:end -->/, `<!-- results:start -->\n${block}\n<!-- results:end -->`));
 }
 process.exit(summary.agree === summary.compared && !summary.outsideForm.length &&
-  (!pythonResults || pythonResults.agree === pythonResults.of && pythonResults.reportsAgree === pythonResults.of) ? 0 : 1);
+  (!pythonResults || [pythonResults.agree, pythonResults.validatePyAgree, pythonResults.reportsAgree].every(n => n === pythonResults.of)) ? 0 : 1);

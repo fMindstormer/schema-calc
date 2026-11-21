@@ -1,11 +1,13 @@
 """Validate exported Schema Calc files with stock jsonschema, without the compiler.
 
-    python3 validate.py SCHEMA RECORD [RECORD ...]
+    python3 validate.py [--check-schema] SCHEMA RECORD [RECORD ...]
 
 Prints ACCEPT or REJECT for each record, and under REJECT, why: the record's
 format problems, if any, or else each constraint it fails. Exits 0 when every
-record is accepted, 1 when any is rejected. Without arguments, checks the invoice
-examples beside this file. Requires only jsonschema (tested with 4.25.1).
+record is accepted, 1 when any is rejected. --check-schema first checks the schema
+against the Draft 2020-12 meta-schema, which takes about a minute for a schema of
+10 MB. Without arguments, checks the invoice examples beside this file. Requires
+only jsonschema (tested with 4.25.1).
 """
 import argparse
 import json
@@ -18,10 +20,29 @@ def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def validator_for(path):
+def validator_for(path, check_schema=False):
     schema = load(path)
-    Draft202012Validator.check_schema(schema)
-    return Draft202012Validator(schema)
+    if check_schema:
+        Draft202012Validator.check_schema(schema)
+    return validator_of(schema)
+
+
+def validator_of(schema):
+    """A validator for schema, which finds its resources once.
+
+    Stock jsonschema looks up a schema's embedded $id resources by crawling the
+    whole schema again on each validation, and a compiled schema of several
+    megabytes then takes about a second per record. Crawling the registry once
+    here gives the same verdicts and errors; the crawl costs about one validation.
+    """
+    try:
+        from referencing import Registry
+        from referencing.jsonschema import DRAFT202012
+    except ImportError:  # jsonschema before 4.18 resolves references without it
+        return Draft202012Validator(schema)
+    resource = DRAFT202012.create_resource(schema)
+    registry = Registry().with_resource(schema.get("$id", ""), resource).crawl()
+    return Draft202012Validator(schema, registry=registry)
 
 
 def failures(validator, record):
@@ -139,13 +160,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("schema", nargs="?", help="exported .schema.json file")
     parser.add_argument("records", nargs="*", help="record JSON files to validate")
+    parser.add_argument("--check-schema", action="store_true", help="check the schema against the Draft 2020-12 meta-schema first")
     args = parser.parse_args()
     if args.schema is None:
         check_examples()
         return 0
     if not args.records:
         parser.error("give at least one record file after the schema")
-    validator = validator_for(args.schema)
+    validator = validator_for(args.schema, check_schema=args.check_schema)
     accepted_all = True
     for path in args.records:
         record = load(path)

@@ -62,7 +62,7 @@ REJECT  invoice.invalid.json
   fails: total = subtotal + shipping - discount
 ```
 
-`validate.py` is a short script that never imports the compiler. Under each `REJECT` it says why: the constraints the record breaks, or what is wrong with its format. It exits with 1 when any record is rejected. For a record you edited yourself, use the playground's two download buttons: the page prints the matching command and the output to expect.
+`validate.py` is a short script that never imports the compiler. Under each `REJECT` it says why: the constraints the record breaks, or what is wrong with its format. It exits with 1 when any record is rejected. It finds the schema's resources once per run, so each further record costs only its own validation; `--check-schema` also checks the schema against the Draft 2020-12 meta-schema first. For a record you edited yourself, use the playground's two download buttons: the page prints the matching command and the output to expect.
 
 ## Run it locally
 
